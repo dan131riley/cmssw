@@ -80,6 +80,10 @@ namespace edm {
     if(rootOutputFile_) rootOutputFile_->respondToCloseInputFile(fb);
   }
 
+  void PoolOutputModule::postForkReacquireResources(unsigned int iChildIndex, unsigned int iNumberOfChildren) {
+    postForkReacquireResourcesBase(iChildIndex, iNumberOfChildren);
+  }
+
   PoolOutputModule::~PoolOutputModule() {
   }
 
