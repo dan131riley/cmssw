@@ -41,7 +41,20 @@ namespace edm {
     edm::global::OutputModuleBase::OutputModuleBase(pset),
     global::OutputModule<WatchInputFiles>(pset),
     PoolOutputModuleBase(pset, wantAllEvents()),
-    rootOutputFile_() {}
+    rootOutputFile_(),
+    eventOutputFiles_(),
+  	moduleLabel_(pset.getParameter<std::string>("@module_label")) {
+      eventOutputFiles_.set_capacity(pset.getUntrackedParameter<unsigned int>("parallelWriters"));
+    }
+
+  ParallelPoolOutputModule::~ParallelPoolOutputModule() {
+    RootOutputFile* outputFile;
+
+    while (eventOutputFiles_.try_pop(outputFile)) {
+      LogWarning("ParallelPoolOutputModule") << "eventOutputFiles_ not empty in destructor";
+      delete outputFile;
+    }
+  }
 
   void ParallelPoolOutputModule::beginJob() {
     beginJobBase();
@@ -86,37 +99,32 @@ namespace edm {
     postForkReacquireResourcesBase(iChildIndex, iNumberOfChildren);
   }
 
-  ParallelPoolOutputModule::~ParallelPoolOutputModule() {
-  }
-
   void ParallelPoolOutputModule::write(EventForOutput const& e) {
-    // ugly...should learn a prettier way
-    struct FileRecHolder {
-      FileRecHolder(EventOutputFiles& q) : queue_(q) {}
-      ~FileRecHolder() {
-        if (nullptr != fileRec_.eventFile_) queue_.push(std::move(fileRec_));
-      }
-      EventFileRec fileRec_;
-      EventOutputFiles& queue_;
-    };
-
     // NOTE: subProcessParentageHelper() not implemented in global::OutputModuleBase
     //updateBranchParents(e, subProcessParentageHelper());
     updateBranchParents(e, nullptr);
 
-    FileRecHolder fileRecHolder(eventOutputFiles_);
-    EventFileRec& fileRec = fileRecHolder.fileRec_;
+    auto pushfile = [&](RootOutputFile* f) { eventOutputFiles_.push(f); };
+    std::unique_ptr<RootOutputFile, decltype(pushfile)> outputFile(nullptr, pushfile);
+    RootOutputFile* otmp;
 
-    if (!eventOutputFiles_.try_pop(fileRec)) {
-      auto names = physicalAndLogicalNameForNewFile();
-      fileRec.eventFile_ = std::make_unique<RootOutputFile>(this, names.first, names.second, mergePtr_->GetFile());
-      fileRec.fileCounter_ = eventFileCount_++;
+    if (eventFileCount_++ < eventOutputFiles_.capacity()) {
+      // below the limit, create on demand
+      if (eventOutputFiles_.try_pop(otmp)) {
+        outputFile.reset(otmp);
+      } else {
+        auto names = physicalAndLogicalNameForNewFile();
+        outputFile.reset(new RootOutputFile(this, names.first, names.second, mergePtr_->GetFile()));
+      }
+    } else {
+      // over the limit, block if not available
+      eventFileCount_--;
+      eventOutputFiles_.pop(otmp);
+      outputFile.reset(otmp);
     }
 
-    auto rootfile = fileRec.eventFile_.get();
-    rootfile->writeOne(e);
-    rootfile->writeEvents();
-
+    outputFile->writeOne(e);
+    outputFile->writeEvents();
     if (!statusFileName().empty()) {
       // NOTE: sigh...mutex here?
       std::ofstream statusFile(statusFileName().c_str());
@@ -134,16 +142,17 @@ namespace edm {
   }
 
   void ParallelPoolOutputModule::reallyCloseFile() {
-    EventFileRec frec;
-    while (eventOutputFiles_.try_pop(frec)) {
-      frec.eventFile_->writeEvents(true);
-      frec.eventFile_ = nullptr;
-    }
+    RootOutputFile* outputFile;
 
+    LogSystem(moduleLabel_) << "Event file count " << eventFileCount_;
+    //NOTE: need to merge the provenance from the writers before deleting!
+    while (eventOutputFiles_.try_pop(outputFile)) {
+      outputFile->writeEvents(true);
+      delete outputFile;
+    }
     reallyCloseFileBase(rootOutputFile_, true);
     rootOutputFile_ = nullptr;
     mergePtr_ = nullptr;
-    LogWarning("ParallelPoolOutputModule") << "Event file count " << eventFileCount_;
     eventFileCount_ = 0;
   }
   bool ParallelPoolOutputModule::isFileOpen() const { return rootOutputFile_.get() != nullptr; }
@@ -168,6 +177,8 @@ namespace edm {
   ParallelPoolOutputModule::fillDescription(ParameterSetDescription& desc) {
     PoolOutputModuleBase::fillDescription(desc);
     OutputModule::fillDescription(desc);
+    desc.addUntracked<unsigned int>("parallelWriters", 4)
+        ->setComment("Number of parallel writers.");
   }
 
   void
