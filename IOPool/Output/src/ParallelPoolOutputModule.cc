@@ -48,12 +48,6 @@ namespace edm {
     }
 
   ParallelPoolOutputModule::~ParallelPoolOutputModule() {
-    RootOutputFile* outputFile;
-
-    while (eventOutputFiles_.try_pop(outputFile)) {
-      LogWarning("ParallelPoolOutputModule") << "eventOutputFiles_ not empty in destructor";
-      delete outputFile;
-    }
   }
 
   void ParallelPoolOutputModule::beginJob() {
@@ -104,23 +98,22 @@ namespace edm {
     //updateBranchParents(e, subProcessParentageHelper());
     updateBranchParents(e, nullptr);
 
-    auto pushfile = [&](RootOutputFile* f) { eventOutputFiles_.push(f); };
-    std::unique_ptr<RootOutputFile, decltype(pushfile)> outputFile(nullptr, pushfile);
-    RootOutputFile* otmp;
+    // NOTE: Order matters here, sentry MUST be destroyed before outputFile
+    std::shared_ptr<RootOutputFile> outputFile;
+
+    auto pushfile = [&](decltype(outputFile)* f) { eventOutputFiles_.push(*f); };
+    std::unique_ptr<decltype(outputFile), decltype(pushfile)> sentry(&outputFile, pushfile);
 
     if (eventFileCount_++ < eventOutputFiles_.capacity()) {
       // below the limit, create on demand
-      if (eventOutputFiles_.try_pop(otmp)) {
-        outputFile.reset(otmp);
-      } else {
+      if (!eventOutputFiles_.try_pop(outputFile)) {
         auto names = physicalAndLogicalNameForNewFile();
-        outputFile.reset(new RootOutputFile(this, names.first, names.second, mergePtr_->GetFile()));
+        outputFile = std::make_shared<RootOutputFile>(this, names.first, names.second, mergePtr_->GetFile());
       }
     } else {
       // over the limit, block if not available
       eventFileCount_--;
-      eventOutputFiles_.pop(otmp);
-      outputFile.reset(otmp);
+      eventOutputFiles_.pop(outputFile);
     }
 
     outputFile->writeOne(e);
@@ -142,13 +135,14 @@ namespace edm {
   }
 
   void ParallelPoolOutputModule::reallyCloseFile() {
-    RootOutputFile* outputFile;
+    std::shared_ptr<RootOutputFile> outputFile;
 
     LogSystem(moduleLabel_) << "Event file count " << eventFileCount_;
     //NOTE: need to merge the provenance from the writers before deleting!
     while (eventOutputFiles_.try_pop(outputFile)) {
+      assert(outputFile.use_count() == 1);
       outputFile->writeEvents(true);
-      delete outputFile;
+      outputFile = nullptr;
     }
     reallyCloseFileBase(rootOutputFile_, true);
     rootOutputFile_ = nullptr;

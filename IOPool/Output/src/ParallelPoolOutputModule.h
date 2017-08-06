@@ -67,7 +67,7 @@ namespace edm {
     edm::propagate_const<std::unique_ptr<RootOutputFile>> rootOutputFile_;
 
     // std::unique_ptr inside concurrent_bounded_queue doesn't instantiate??
-    typedef tbb::concurrent_bounded_queue<RootOutputFile*> EventOutputFiles;
+    typedef tbb::concurrent_bounded_queue<std::shared_ptr<RootOutputFile>> EventOutputFiles;
     EventOutputFiles eventOutputFiles_;
     std::atomic<unsigned int> eventFileCount_{};
     std::string moduleLabel_;
