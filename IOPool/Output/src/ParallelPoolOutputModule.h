@@ -12,7 +12,7 @@
 #include "IOPool/Output/interface/PoolOutputModuleBase.h"
 #include "FWCore/Framework/interface/global/OutputModule.h"
 
-#include "tbb/concurrent_priority_queue.h"
+#include "tbb/concurrent_queue.h"
 
 class TTree;
 namespace ROOT {
@@ -66,17 +66,12 @@ namespace edm {
     edm::propagate_const<std::shared_ptr<ROOT::TBufferMerger>> mergePtr_;
     edm::propagate_const<std::unique_ptr<RootOutputFile>> rootOutputFile_;
 
-    struct EventFileRec {
-      std::unique_ptr<RootOutputFile> eventFile_;
-      unsigned int fileCounter_;
-    };
-    struct EventFileRecComp {
-      bool operator()(const EventFileRec& a, const EventFileRec& b) const { return a.fileCounter_ < b.fileCounter_; }
-    };
-    typedef tbb::concurrent_priority_queue<EventFileRec, EventFileRecComp> EventOutputFiles;
+    // std::unique_ptr inside concurrent_bounded_queue doesn't instantiate??
+    typedef tbb::concurrent_bounded_queue<RootOutputFile*> EventOutputFiles;
     EventOutputFiles eventOutputFiles_;
+    std::atomic<unsigned int> eventFileCount_{};
+    std::string moduleLabel_;
   };
-  std::atomic<unsigned int> eventFileCount_{};
 }
 
 #endif
