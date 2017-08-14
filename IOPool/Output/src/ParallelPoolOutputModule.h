@@ -3,12 +3,15 @@
 
 //////////////////////////////////////////////////////////////////////
 //
-// Class ParallelPoolOutputModule. Output module to POOL file
+// Class ParallelPoolOutputModule. Parallel output to a ROOT file
 //
-// Oringinal Author: Luca Lista
-// Current Author: Bill Tanenbaum
+// Author: Dan Riley
+// Refactored from the PoolOutputModule by Luca Lista and Bill Tanenbaum
 //
 //////////////////////////////////////////////////////////////////////
+
+#include <mutex>
+
 #include "IOPool/Output/interface/PoolOutputModuleBase.h"
 #include "FWCore/Framework/interface/global/OutputModule.h"
 
@@ -48,7 +51,7 @@ namespace edm {
     virtual void write(EventForOutput const& e) override;
 
   private:
-    //virtual void preActionBeforeRunEventAsync(WaitingTask* iTask, ModuleCallingContext const& iModuleCallingContext, Principal const& iPrincipal) const override;
+    virtual void preActionBeforeRunEventAsync(WaitingTask* iTask, ModuleCallingContext const& iModuleCallingContext, Principal const& iPrincipal) const override;
 
     virtual void openFile(FileBlock const& fb) override;
     virtual void respondToOpenInputFile(FileBlock const& fb) override;
@@ -61,6 +64,7 @@ namespace edm {
     virtual void reallyCloseFile() override;
     virtual void beginJob() override;
 
+    void reallyOpenFileImpl();
     void beginInputFile(FileBlock const& fb);
 
     edm::propagate_const<std::shared_ptr<ROOT::TBufferMerger>> mergePtr_;
@@ -71,6 +75,7 @@ namespace edm {
     EventOutputFiles eventOutputFiles_;
     std::atomic<unsigned int> eventFileCount_{};
     std::string moduleLabel_;
+    std::mutex notYetThreadSafe_;
   };
 }
 

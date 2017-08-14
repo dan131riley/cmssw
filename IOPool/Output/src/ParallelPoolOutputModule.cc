@@ -48,6 +48,15 @@ namespace edm {
     }
 
   ParallelPoolOutputModule::~ParallelPoolOutputModule() {
+    // NOTE: bad idea?
+    if (!eventOutputFiles_.empty()) {
+      LogWarning("ParallelPoolOutputModule::~ParallelPoolOutputModule") << "eventOutputFiles_ not empty";
+      std::shared_ptr<RootOutputFile> outputFile;
+      while (eventOutputFiles_.try_pop(outputFile)) {
+        outputFile->writeEvents(true);
+        outputFile = nullptr;
+      }
+    }
   }
 
   void ParallelPoolOutputModule::beginJob() {
@@ -55,7 +64,10 @@ namespace edm {
   }
 
   bool ParallelPoolOutputModule::OMwantAllEvents() const { return wantAllEvents(); }
-  BranchIDLists const* ParallelPoolOutputModule::OMbranchIDLists() { return branchIDLists(); }
+  BranchIDLists const* ParallelPoolOutputModule::OMbranchIDLists() {
+    // only called via reallyCloseFile()
+    return branchIDLists();
+  }
   ThinnedAssociationsHelper const* ParallelPoolOutputModule::OMthinnedAssociationsHelper() const { return thinnedAssociationsHelper(); }
   ParameterSetID ParallelPoolOutputModule::OMselectorConfig() const { return selectorConfig(); }
   SelectedProductsForBranchType const& ParallelPoolOutputModule::OMkeptProducts() const { return keptProducts(); }
@@ -71,13 +83,15 @@ namespace edm {
     }
   }
 
+  //NOTE: assumed serialized by framework
   void ParallelPoolOutputModule::openFile(FileBlock const& fb) {
     if(!isFileOpen()) {
-      reallyOpenFile();
+      reallyOpenFileImpl();
       beginInputFile(fb);
     }
   }
 
+  //NOTE: assumed serialized by framework
   void ParallelPoolOutputModule::respondToOpenInputFile(FileBlock const& fb) {
     auto init = initializedFromInput();
     respondToOpenInputFileBase(fb, keptProducts());
@@ -85,23 +99,23 @@ namespace edm {
     if (isFileOpen() && !init) rootOutputFile_->fillSelectedProductList();
   }
 
+  //NOTE: assumed serialized by framework
   void ParallelPoolOutputModule::respondToCloseInputFile(FileBlock const& fb) {
     if (rootOutputFile_) rootOutputFile_->respondToCloseInputFile(fb);
   }
 
   void ParallelPoolOutputModule::postForkReacquireResources(unsigned int iChildIndex, unsigned int iNumberOfChildren) {
+    std::lock_guard<std::mutex> lock{notYetThreadSafe_};
     postForkReacquireResourcesBase(iChildIndex, iNumberOfChildren);
   }
 
   void ParallelPoolOutputModule::write(EventForOutput const& e) {
-    // NOTE: subProcessParentageHelper() not implemented in global::OutputModuleBase
-    //updateBranchParents(e, subProcessParentageHelper());
-    updateBranchParents(e, nullptr);
+    updateBranchParents(e, subProcessParentageHelper());
 
     // NOTE: Order matters here, sentry MUST be destroyed before outputFile
     std::shared_ptr<RootOutputFile> outputFile;
 
-    auto pushfile = [&](decltype(outputFile)* f) { eventOutputFiles_.push(*f); };
+    auto pushfile = [&](decltype(outputFile)* f) { eventOutputFiles_.push(std::move(*f)); };
     std::unique_ptr<decltype(outputFile), decltype(pushfile)> sentry(&outputFile, pushfile);
 
     if (eventFileCount_++ < eventOutputFiles_.capacity()) {
@@ -109,6 +123,8 @@ namespace edm {
       if (!eventOutputFiles_.try_pop(outputFile)) {
         auto names = physicalAndLogicalNameForNewFile();
         outputFile = std::make_shared<RootOutputFile>(this, names.first, names.second, mergePtr_->GetFile());
+      } else {
+        eventFileCount_--;
       }
     } else {
       // over the limit, block if not available
@@ -119,7 +135,7 @@ namespace edm {
     outputFile->writeOne(e);
     outputFile->writeEvents();
     if (!statusFileName().empty()) {
-      // NOTE: sigh...mutex here?
+      std::lock_guard<std::mutex> lock{notYetThreadSafe_}; // NOTE: urrrggggghhhhh...
       std::ofstream statusFile(statusFileName().c_str());
       statusFile << e.id() << " time: " << std::setprecision(3) << TimeOfDay() << '\n';
       statusFile.close();
@@ -127,17 +143,20 @@ namespace edm {
   }
 
   void ParallelPoolOutputModule::writeLuminosityBlock(LuminosityBlockForOutput const& lb) {
+    std::lock_guard<std::mutex> lock{notYetThreadSafe_};
     rootOutputFile_->writeLuminosityBlock(lb);
   }
 
   void ParallelPoolOutputModule::writeRun(RunForOutput const& r) {
+    std::lock_guard<std::mutex> lock{notYetThreadSafe_};
     rootOutputFile_->writeRun(r);
   }
 
+  //NOTE: assumed serialized by framework
   void ParallelPoolOutputModule::reallyCloseFile() {
     std::shared_ptr<RootOutputFile> outputFile;
 
-    LogSystem(moduleLabel_) << "Event file count " << eventFileCount_;
+    LogSystem(moduleLabel_) << "Event file count " << eventFileCount_ << " queue size " << eventOutputFiles_.size();
     //NOTE: need to merge the provenance from the writers before deleting!
     while (eventOutputFiles_.try_pop(outputFile)) {
       assert(outputFile.use_count() == 1);
@@ -152,20 +171,22 @@ namespace edm {
   bool ParallelPoolOutputModule::isFileOpen() const { return rootOutputFile_.get() != nullptr; }
   bool ParallelPoolOutputModule::shouldWeCloseFile() const { return rootOutputFile_->shouldWeCloseFile(); }
 
-  void ParallelPoolOutputModule::reallyOpenFile() {
+  void ParallelPoolOutputModule::reallyOpenFileImpl() {
     auto names = physicalAndLogicalNameForNewFile();
     mergePtr_ = std::make_shared<ROOT::TBufferMerger>(names.first.c_str(), "recreate", compressionLevel());
     rootOutputFile_ = std::make_unique<RootOutputFile>(this, names.first, names.second, mergePtr_->GetFile());
   }
 
+  //NOTE: assumed serialized by framework
+  void ParallelPoolOutputModule::reallyOpenFile() {
+    reallyOpenFileImpl();
+  }
 
-// NOTE: Not implemented in global::OutputModuleBase
-/*
+  //NOTE: assumed serialized by framework
   void
   ParallelPoolOutputModule::preActionBeforeRunEventAsync(WaitingTask* iTask, ModuleCallingContext const& iModuleCallingContext, Principal const& iPrincipal) const {
     preActionBeforeRunEventAsyncBase(iTask, iModuleCallingContext, iPrincipal);
   }
-*/
 
   void
   ParallelPoolOutputModule::fillDescription(ParameterSetDescription& desc) {
