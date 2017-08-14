@@ -167,7 +167,7 @@ namespace edm {
     parentageTree_ = RootOutputTree::makeTTree(filePtr_.get(), poolNames::parentageTreeName(), 0);
     parameterSetsTree_    = RootOutputTree::makeTTree(filePtr_.get(), poolNames::parameterSetsTreeName(), 0);
 
-    if (parallelOutput_) resetCleanupBit(); // avoid unresolved bug in ROOT, may leak memory
+    //if (parallelOutput_) resetCleanupBit(); // avoid unresolved bug in ROOT, may leak memory
 
     fid_ = FileID(createGlobalIdentifier());
 
@@ -622,6 +622,8 @@ namespace edm {
     auto ttree = dynamic_cast<TTree*>(filePtr_->Get(edm::poolNames::eventTreeName().c_str()));
     auto flushsize = ttree->GetAutoFlush();
     if (doWrite || (flushsize > 0 && ttree->GetEntries() >= flushsize)) {
+      LogSystem("RootOutputFile::writeEvents") << "Writing events forced " << doWrite << " entries " << ttree->GetEntries();
+      ttree->AutoSave("FlushBaskets");
       filePtr_->Write();
     }
   }

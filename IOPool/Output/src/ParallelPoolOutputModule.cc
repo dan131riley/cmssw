@@ -86,7 +86,7 @@ namespace edm {
   //NOTE: assumed serialized by framework
   void ParallelPoolOutputModule::openFile(FileBlock const& fb) {
     if(!isFileOpen()) {
-      reallyOpenFile();
+      reallyOpenFileImpl();
       beginInputFile(fb);
     }
   }
@@ -163,7 +163,7 @@ namespace edm {
   bool ParallelPoolOutputModule::isFileOpen() const { return rootOutputFile_.get() != nullptr; }
   bool ParallelPoolOutputModule::shouldWeCloseFile() const { return rootOutputFile_->shouldWeCloseFile(); }
 
-  void ParallelPoolOutputModule::reallyOpenFile() {
+  void ParallelPoolOutputModule::reallyOpenFileImpl() {
     auto names = physicalAndLogicalNameForNewFile();
     ROOT::ECompressionAlgorithm alg;
     if (compressionAlgorithm() == std::string("ZLIB")) {
