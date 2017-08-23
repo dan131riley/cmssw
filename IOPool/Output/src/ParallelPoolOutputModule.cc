@@ -27,9 +27,9 @@
 #include "TBranchElement.h"
 #include "TObjArray.h"
 #include "RVersion.h"
+#include "Compression.h"
 
-// not in our ROOT version yet, so private copy
-#include "IOPool/Output/src/TBufferMerger.hxx"
+#include "ROOT/TBufferMerger.hxx"
 
 #include <fstream>
 #include <iomanip>
@@ -43,7 +43,7 @@ namespace edm {
     PoolOutputModuleBase(pset, wantAllEvents()),
     rootOutputFile_(),
     eventOutputFiles_(),
-  	moduleLabel_(pset.getParameter<std::string>("@module_label")) {
+    moduleLabel_(pset.getParameter<std::string>("@module_label")) {
       eventOutputFiles_.set_capacity(pset.getUntrackedParameter<unsigned int>("parallelWriters"));
     }
 
@@ -134,6 +134,7 @@ namespace edm {
 
     outputFile->writeOne(e);
     outputFile->writeEvents();
+
     if (!statusFileName().empty()) {
       std::lock_guard<std::mutex> lock{notYetThreadSafe_}; // NOTE: urrrggggghhhhh...
       std::ofstream statusFile(statusFileName().c_str());
@@ -173,7 +174,17 @@ namespace edm {
 
   void ParallelPoolOutputModule::reallyOpenFileImpl() {
     auto names = physicalAndLogicalNameForNewFile();
-    mergePtr_ = std::make_shared<ROOT::TBufferMerger>(names.first.c_str(), "recreate", compressionLevel());
+    ROOT::ECompressionAlgorithm alg;
+    if (compressionAlgorithm() == std::string("ZLIB")) {
+      alg = ROOT::kZLIB;
+    } else if (compressionAlgorithm() == std::string("LZMA")) {
+      alg = ROOT::kLZMA;
+    } else {
+      throw Exception(errors::Configuration) << "PoolOutputModuleBase configured with unknown compression algorithm '" << compressionAlgorithm() << "'\n"
+					     << "Allowed compression algorithms are ZLIB and LZMA\n";
+    }
+    mergePtr_ = std::make_shared<ROOT::Experimental::TBufferMerger>(names.first.c_str(), "recreate",
+                                                      ROOT::CompressionSettings(alg, compressionLevel()));
     rootOutputFile_ = std::make_unique<RootOutputFile>(this, names.first, names.second, mergePtr_->GetFile());
   }
 
