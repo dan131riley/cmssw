@@ -138,7 +138,6 @@ namespace edm {
     virtual void doExtrasAfterCloseFile();
     virtual void beginJobBase();
     virtual void respondToOpenInputFileBase(FileBlock const& fb, SelectedProductsForBranchType const& keptProducts);
-    virtual void postForkReacquireResourcesBase(unsigned int iChildIndex, unsigned int iNumberOfChildren);
     virtual void reallyCloseFileBase(RootOutputFile* rootOutputFile, bool doWrite = false);
     virtual void preActionBeforeRunEventAsyncBase(WaitingTask* iTask, ModuleCallingContext const& iModuleCallingContext,
                                                   Principal const& iPrincipal) const;

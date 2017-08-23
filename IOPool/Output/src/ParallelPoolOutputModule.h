@@ -60,13 +60,11 @@ namespace edm {
     virtual void respondToCloseInputFile(FileBlock const& fb) override;
     virtual void writeLuminosityBlock(LuminosityBlockForOutput const& lb) override;
     virtual void writeRun(RunForOutput const& r) override;
-    virtual void postForkReacquireResources(unsigned int iChildIndex, unsigned int iNumberOfChildren) override;
     virtual bool isFileOpen() const override;
-    virtual void reallyOpenFile() override;
     virtual void reallyCloseFile() override;
     virtual void beginJob() override;
 
-    void reallyOpenFileImpl();
+    void reallyOpenFile();
     void beginInputFile(FileBlock const& fb);
 
     edm::propagate_const<std::shared_ptr<ROOT::Experimental::TBufferMerger>> mergePtr_;
