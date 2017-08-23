@@ -19,7 +19,9 @@
 
 class TTree;
 namespace ROOT {
-  class TBufferMerger;
+  namespace Experimental {
+    class TBufferMerger;
+  }
 }
 
 namespace edm {
@@ -67,7 +69,7 @@ namespace edm {
     void reallyOpenFileImpl();
     void beginInputFile(FileBlock const& fb);
 
-    edm::propagate_const<std::shared_ptr<ROOT::TBufferMerger>> mergePtr_;
+    edm::propagate_const<std::shared_ptr<ROOT::Experimental::TBufferMerger>> mergePtr_;
     edm::propagate_const<std::unique_ptr<RootOutputFile>> rootOutputFile_;
 
     // std::unique_ptr inside concurrent_bounded_queue doesn't instantiate??
