@@ -238,17 +238,6 @@ namespace edm {
     ++inputFileCount_;
   }
 
-  void PoolOutputModuleBase::postForkReacquireResourcesBase(unsigned int iChildIndex, unsigned int iNumberOfChildren) {
-    childIndex_ = iChildIndex;
-    while (iNumberOfChildren != 0) {
-      ++numberOfDigitsInIndex_;
-      iNumberOfChildren /= 10;
-    }
-    if (numberOfDigitsInIndex_ == 0) {
-      numberOfDigitsInIndex_ = 3; // Protect against zero iNumberOfChildren
-    }
-  }
-
   PoolOutputModuleBase::~PoolOutputModuleBase() noexcept (false) {
   }
 
