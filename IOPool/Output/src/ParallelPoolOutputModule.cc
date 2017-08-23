@@ -86,7 +86,7 @@ namespace edm {
   //NOTE: assumed serialized by framework
   void ParallelPoolOutputModule::openFile(FileBlock const& fb) {
     if(!isFileOpen()) {
-      reallyOpenFileImpl();
+      reallyOpenFile();
       beginInputFile(fb);
     }
   }
@@ -102,11 +102,6 @@ namespace edm {
   //NOTE: assumed serialized by framework
   void ParallelPoolOutputModule::respondToCloseInputFile(FileBlock const& fb) {
     if (rootOutputFile_) rootOutputFile_->respondToCloseInputFile(fb);
-  }
-
-  void ParallelPoolOutputModule::postForkReacquireResources(unsigned int iChildIndex, unsigned int iNumberOfChildren) {
-    std::lock_guard<std::mutex> lock{notYetThreadSafe_};
-    postForkReacquireResourcesBase(iChildIndex, iNumberOfChildren);
   }
 
   void ParallelPoolOutputModule::write(EventForOutput const& e) {
@@ -172,7 +167,7 @@ namespace edm {
   bool ParallelPoolOutputModule::isFileOpen() const { return rootOutputFile_.get() != nullptr; }
   bool ParallelPoolOutputModule::shouldWeCloseFile() const { return rootOutputFile_->shouldWeCloseFile(); }
 
-  void ParallelPoolOutputModule::reallyOpenFileImpl() {
+  void ParallelPoolOutputModule::reallyOpenFile() {
     auto names = physicalAndLogicalNameForNewFile();
     ROOT::ECompressionAlgorithm alg;
     if (compressionAlgorithm() == std::string("ZLIB")) {
@@ -186,11 +181,6 @@ namespace edm {
     mergePtr_ = std::make_shared<ROOT::Experimental::TBufferMerger>(names.first.c_str(), "recreate",
                                                       ROOT::CompressionSettings(alg, compressionLevel()));
     rootOutputFile_ = std::make_unique<RootOutputFile>(this, names.first, names.second, mergePtr_->GetFile());
-  }
-
-  //NOTE: assumed serialized by framework
-  void ParallelPoolOutputModule::reallyOpenFile() {
-    reallyOpenFileImpl();
   }
 
   //NOTE: assumed serialized by framework
@@ -211,6 +201,6 @@ namespace edm {
   ParallelPoolOutputModule::fillDescriptions(ConfigurationDescriptions & descriptions) {
     ParameterSetDescription desc;
     ParallelPoolOutputModule::fillDescription(desc);
-    descriptions.add("edmOutput", desc);
+    descriptions.add("edmParallelOutput", desc);
   }
 }
