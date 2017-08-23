@@ -623,8 +623,9 @@ namespace edm {
     auto flushsize = ttree->GetAutoFlush();
     if (doWrite || (flushsize > 0 && ttree->GetEntries() >= flushsize)) {
       LogSystem("RootOutputFile::writeEvents") << "Writing events forced " << doWrite << " entries " << ttree->GetEntries();
-      ttree->AutoSave("FlushBaskets");
+      //ttree->AutoSave("FlushBaskets"); //NOTE: testing?
       filePtr_->Write();
+      LogSystem("RootOutputFile::writeEvents") << "dsr size after write " << filePtr_->GetSize();
     }
   }
 
