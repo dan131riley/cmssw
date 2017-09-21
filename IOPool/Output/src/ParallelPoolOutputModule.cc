@@ -38,13 +38,13 @@
 
 namespace edm {
   ParallelPoolOutputModule::ParallelPoolOutputModule(ParameterSet const& pset) :
-    edm::global::OutputModuleBase::OutputModuleBase(pset),
-    global::OutputModule<WatchInputFiles>(pset),
+    edm::limited::OutputModuleBase::OutputModuleBase(pset),
+    limited::OutputModule<WatchInputFiles>(pset),
     PoolOutputModuleBase(pset, wantAllEvents()),
     rootOutputFile_(),
     eventOutputFiles_(),
     moduleLabel_(pset.getParameter<std::string>("@module_label")) {
-      eventOutputFiles_.set_capacity(pset.getUntrackedParameter<unsigned int>("parallelWriters"));
+      eventOutputFiles_.set_capacity(pset.getUntrackedParameter<unsigned int>("concurrencyLimit"));
     }
 
   ParallelPoolOutputModule::~ParallelPoolOutputModule() {
@@ -193,8 +193,6 @@ namespace edm {
   ParallelPoolOutputModule::fillDescription(ParameterSetDescription& desc) {
     PoolOutputModuleBase::fillDescription(desc);
     OutputModule::fillDescription(desc);
-    desc.addUntracked<unsigned int>("parallelWriters", 4)
-        ->setComment("Number of parallel writers.");
   }
 
   void
