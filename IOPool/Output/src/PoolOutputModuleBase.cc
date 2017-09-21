@@ -112,7 +112,7 @@ namespace edm {
         basketSize_(BranchDescription::invalidBasketSize) {}
 
   PoolOutputModuleBase::OutputItem::OutputItem() :
-        branchDescription_(0),
+        branchDescription_(nullptr),
         token_(),
         splitLevel_(BranchDescription::invalidSplitLevel),
         basketSize_(BranchDescription::invalidBasketSize) {}
@@ -191,7 +191,7 @@ namespace edm {
       int basketSize = BranchDescription::invalidBasketSize;
 
       BranchDescription const& prod = *kept.first;
-      TBranch* theBranch = ((!prod.produced() && theInputTree != nullptr && !overrideInputFileSplitLevels_) ? theInputTree->GetBranch(prod.branchName().c_str()) : 0);
+      TBranch* theBranch = ((!prod.produced() && theInputTree != nullptr && !overrideInputFileSplitLevels_) ? theInputTree->GetBranch(prod.branchName().c_str()) : nullptr);
 
       if(theBranch != nullptr) {
         splitLevel = theBranch->GetSplitLevel();

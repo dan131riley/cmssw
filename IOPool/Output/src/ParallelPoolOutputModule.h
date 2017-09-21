@@ -29,7 +29,7 @@ namespace edm {
   class ParallelPoolOutputModule : public limited::OutputModule<WatchInputFiles>, public PoolOutputModuleBase {
   public:
     explicit ParallelPoolOutputModule(ParameterSet const& ps);
-    virtual ~ParallelPoolOutputModule();
+    ~ParallelPoolOutputModule() override;
     ParallelPoolOutputModule(ParallelPoolOutputModule const&) = delete; // Disallow copying and moving
     ParallelPoolOutputModule& operator=(ParallelPoolOutputModule const&) = delete; // Disallow copying and moving
 
@@ -41,28 +41,28 @@ namespace edm {
     using OutputModule::selectorConfig;
 
     // these must be forwarded by the OutputModule implementation
-    virtual bool OMwantAllEvents() const override;
-    virtual BranchIDLists const* OMbranchIDLists() override;
-    virtual ThinnedAssociationsHelper const* OMthinnedAssociationsHelper() const override;
-    virtual ParameterSetID OMselectorConfig() const override;
-    virtual SelectedProductsForBranchType const& OMkeptProducts() const override;
+    bool OMwantAllEvents() const override;
+    BranchIDLists const* OMbranchIDLists() override;
+    ThinnedAssociationsHelper const* OMthinnedAssociationsHelper() const override;
+    ParameterSetID OMselectorConfig() const override;
+    SelectedProductsForBranchType const& OMkeptProducts() const override;
 
   protected:
     ///allow inheriting classes to override but still be able to call this method in the overridden version
-    virtual bool shouldWeCloseFile() const override;
-    virtual void write(EventForOutput const& e) override;
+    bool shouldWeCloseFile() const override;
+    void write(EventForOutput const& e) override;
 
   private:
-    virtual void preActionBeforeRunEventAsync(WaitingTask* iTask, ModuleCallingContext const& iModuleCallingContext, Principal const& iPrincipal) const override;
+    void preActionBeforeRunEventAsync(WaitingTask* iTask, ModuleCallingContext const& iModuleCallingContext, Principal const& iPrincipal) const override;
 
-    virtual void openFile(FileBlock const& fb) override;
-    virtual void respondToOpenInputFile(FileBlock const& fb) override;
-    virtual void respondToCloseInputFile(FileBlock const& fb) override;
-    virtual void writeLuminosityBlock(LuminosityBlockForOutput const& lb) override;
-    virtual void writeRun(RunForOutput const& r) override;
-    virtual bool isFileOpen() const override;
-    virtual void reallyCloseFile() override;
-    virtual void beginJob() override;
+    void openFile(FileBlock const& fb) override;
+    void respondToOpenInputFile(FileBlock const& fb) override;
+    void respondToCloseInputFile(FileBlock const& fb) override;
+    void writeLuminosityBlock(LuminosityBlockForOutput const& lb) override;
+    void writeRun(RunForOutput const& r) override;
+    bool isFileOpen() const override;
+    void reallyCloseFile() override;
+    void beginJob() override;
 
     void reallyOpenFile();
     void beginInputFile(FileBlock const& fb);

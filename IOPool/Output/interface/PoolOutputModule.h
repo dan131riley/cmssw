@@ -31,11 +31,11 @@ namespace edm {
     using OutputModule::selectorConfig;
 
     // these must be forwarded by the OutputModule implementation
-    virtual bool OMwantAllEvents() const override;
-    virtual BranchIDLists const* OMbranchIDLists() override;
-    virtual ThinnedAssociationsHelper const* OMthinnedAssociationsHelper() const override;
-    virtual ParameterSetID OMselectorConfig() const override;
-    virtual SelectedProductsForBranchType const& OMkeptProducts() const override;
+    bool OMwantAllEvents() const override;
+    BranchIDLists const* OMbranchIDLists() override;
+    ThinnedAssociationsHelper const* OMthinnedAssociationsHelper() const override;
+    ParameterSetID OMselectorConfig() const override;
+    SelectedProductsForBranchType const& OMkeptProducts() const override;
 
   protected:
     ///allow inheriting classes to override but still be able to call this method in the overridden version
