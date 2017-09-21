@@ -13,7 +13,7 @@
 #include <mutex>
 
 #include "IOPool/Output/interface/PoolOutputModuleBase.h"
-#include "FWCore/Framework/interface/global/OutputModule.h"
+#include "FWCore/Framework/interface/limited/OutputModule.h"
 
 #include "tbb/concurrent_queue.h"
 
@@ -26,7 +26,7 @@ namespace ROOT {
 
 namespace edm {
 
-  class ParallelPoolOutputModule : public global::OutputModule<WatchInputFiles>, public PoolOutputModuleBase {
+  class ParallelPoolOutputModule : public limited::OutputModule<WatchInputFiles>, public PoolOutputModuleBase {
   public:
     explicit ParallelPoolOutputModule(ParameterSet const& ps);
     virtual ~ParallelPoolOutputModule();
