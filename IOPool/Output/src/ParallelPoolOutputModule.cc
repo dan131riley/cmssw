@@ -189,8 +189,6 @@ namespace edm {
   ParallelPoolOutputModule::fillDescription(ParameterSetDescription& desc) {
     PoolOutputModuleBase::fillDescription(desc);
     OutputModule::fillDescription(desc);
-    desc.addUntracked<unsigned int>("parallelWriters", 4)
-        ->setComment("Number of parallel writers.");
   }
 
   void
