@@ -15,7 +15,7 @@
 #include "IOPool/Output/interface/PoolOutputModuleBase.h"
 #include "FWCore/Framework/interface/limited/OutputModule.h"
 
-#include "tbb/concurrent_queue.h"
+#include "tbb/concurrent_priority_queue.h"
 
 class TTree;
 namespace ROOT {
@@ -70,8 +70,15 @@ namespace edm {
     edm::propagate_const<std::shared_ptr<ROOT::Experimental::TBufferMerger>> mergePtr_;
     edm::propagate_const<std::unique_ptr<RootOutputFile>> rootOutputFile_;
 
-    // std::unique_ptr inside concurrent_bounded_queue doesn't instantiate??
-    typedef tbb::concurrent_bounded_queue<std::shared_ptr<RootOutputFile>> EventOutputFiles;
+    struct EventFileRec {
+      std::unique_ptr<RootOutputFile> eventFile_;
+      unsigned int fileIndex_{};
+    };
+    struct EventFileRecComp {
+      bool operator()(const EventFileRec& a, const EventFileRec& b) const { return a.fileIndex_ > b.fileIndex_; }
+    };
+
+    typedef tbb::concurrent_priority_queue<EventFileRec, EventFileRecComp> EventOutputFiles;
     EventOutputFiles eventOutputFiles_;
     std::atomic<unsigned int> eventFileCount_{};
     std::string moduleLabel_;
