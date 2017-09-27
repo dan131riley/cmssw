@@ -1,27 +1,37 @@
-#ifndef IOPool_Output_PoolOutputModule_h
-#define IOPool_Output_PoolOutputModule_h
+#ifndef IOPool_Output_ParallelPoolOutputModule_h
+#define IOPool_Output_ParallelPoolOutputModule_h
 
 //////////////////////////////////////////////////////////////////////
 //
-// Class PoolOutputModule. Output module to POOL file
+// Class ParallelPoolOutputModule. Parallel output to a ROOT file
 //
-// Oringinal Author: Luca Lista
-// Current Author: Bill Tanenbaum
+// Author: Dan Riley
+// Refactored from the PoolOutputModule by Luca Lista and Bill Tanenbaum
 //
 //////////////////////////////////////////////////////////////////////
+
+#include <mutex>
 
 #include "IOPool/Output/interface/PoolOutputModuleBase.h"
-#include "FWCore/Framework/interface/one/OutputModule.h"
+#include "FWCore/Framework/interface/limited/OutputModule.h"
+
+#include "tbb/concurrent_priority_queue.h"
 
 class TTree;
+namespace ROOT {
+  namespace Experimental {
+    class TBufferMerger;
+  }
+}
+
 namespace edm {
 
-  class PoolOutputModule : public one::OutputModule<WatchInputFiles>, public PoolOutputModuleBase {
+  class ParallelPoolOutputModule : public limited::OutputModule<WatchInputFiles>, public PoolOutputModuleBase {
   public:
-    explicit PoolOutputModule(ParameterSet const& ps);
-    ~PoolOutputModule() override;
-    PoolOutputModule(PoolOutputModule const&) = delete; // Disallow copying and moving
-    PoolOutputModule& operator=(PoolOutputModule const&) = delete; // Disallow copying and moving
+    explicit ParallelPoolOutputModule(ParameterSet const& ps);
+    ~ParallelPoolOutputModule() override;
+    ParallelPoolOutputModule(ParallelPoolOutputModule const&) = delete; // Disallow copying and moving
+    ParallelPoolOutputModule& operator=(ParallelPoolOutputModule const&) = delete; // Disallow copying and moving
 
     std::string const& currentFileName() const;
 
@@ -51,13 +61,28 @@ namespace edm {
     void writeLuminosityBlock(LuminosityBlockForOutput const& lb) override;
     void writeRun(RunForOutput const& r) override;
     bool isFileOpen() const override;
-    void reallyOpenFile();
     void reallyCloseFile() override;
     void beginJob() override;
 
+    void reallyOpenFile();
     void beginInputFile(FileBlock const& fb);
 
+    edm::propagate_const<std::shared_ptr<ROOT::Experimental::TBufferMerger>> mergePtr_;
     edm::propagate_const<std::unique_ptr<RootOutputFile>> rootOutputFile_;
+
+    struct EventFileRec {
+      std::unique_ptr<RootOutputFile> eventFile_;
+      unsigned int fileIndex_{};
+    };
+    struct EventFileRecComp {
+      bool operator()(const EventFileRec& a, const EventFileRec& b) const { return a.fileIndex_ > b.fileIndex_; }
+    };
+
+    typedef tbb::concurrent_priority_queue<EventFileRec, EventFileRecComp> EventOutputFiles;
+    EventOutputFiles eventOutputFiles_;
+    std::atomic<unsigned int> eventFileCount_{};
+    std::string moduleLabel_;
+    std::mutex notYetThreadSafe_;
   };
 }
 
