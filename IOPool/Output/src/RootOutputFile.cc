@@ -616,10 +616,9 @@ namespace edm {
     auto ttree = dynamic_cast<TTree*>(filePtr_->Get(edm::poolNames::eventTreeName().c_str()));
     auto flushsize = ttree->GetAutoFlush();
     if (doWrite || (flushsize > 0 && ttree->GetEntries() >= flushsize)) {
-      LogSystem("RootOutputFile::writeEvents") << "Writing events forced " << doWrite << " entries " << ttree->GetEntries();
-      //ttree->AutoSave("FlushBaskets"); //NOTE: testing?
+      LogSystem("RootOutputFile::writeEvents") << "Writing events " << (doWrite ? "forced" : "flush")
+        << ", entries " << ttree->GetEntries() << " flushsize " << flushsize;
       filePtr_->Write();
-      LogSystem("RootOutputFile::writeEvents") << "dsr size after write " << filePtr_->GetSize();
     }
   }
 
