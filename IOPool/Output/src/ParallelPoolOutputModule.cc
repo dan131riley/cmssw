@@ -43,18 +43,16 @@ namespace edm {
     PoolOutputModuleBase(pset, wantAllEvents()),
     rootOutputFile_(),
     eventOutputFiles_(),
-    moduleLabel_(pset.getParameter<std::string>("@module_label")) {
-      eventOutputFiles_.set_capacity(pset.getUntrackedParameter<unsigned int>("concurrencyLimit"));
-    }
+    moduleLabel_(pset.getParameter<std::string>("@module_label")) {}
 
   ParallelPoolOutputModule::~ParallelPoolOutputModule() {
     // NOTE: bad idea?
     if (!eventOutputFiles_.empty()) {
       LogWarning("ParallelPoolOutputModule::~ParallelPoolOutputModule") << "eventOutputFiles_ not empty";
-      std::shared_ptr<RootOutputFile> outputFile;
-      while (eventOutputFiles_.try_pop(outputFile)) {
-        outputFile->writeEvents(true);
-        outputFile = nullptr;
+      EventFileRec outputFileRec;
+      while (eventOutputFiles_.try_pop(outputFileRec)) {
+        outputFileRec.eventFile_->writeEvents(true);
+        outputFileRec.eventFile_ = nullptr;
       }
     }
   }
@@ -107,28 +105,19 @@ namespace edm {
   void ParallelPoolOutputModule::write(EventForOutput const& e) {
     updateBranchParents(e, subProcessParentageHelper());
 
-    // NOTE: Order matters here, sentry MUST be destroyed before outputFile
-    std::shared_ptr<RootOutputFile> outputFile;
+    // NOTE: Order matters here, sentry MUST be destroyed before outputFileRec
+    EventFileRec outputFileRec;
 
-    auto pushfile = [&](decltype(outputFile)* f) { eventOutputFiles_.push(std::move(*f)); };
-    std::unique_ptr<decltype(outputFile), decltype(pushfile)> sentry(&outputFile, pushfile);
+    auto pushfile = [&](decltype(outputFileRec)* f) { eventOutputFiles_.push(std::move(*f)); };
+    std::unique_ptr<decltype(outputFileRec), decltype(pushfile)> sentry(&outputFileRec, pushfile);
 
-    if (eventFileCount_++ < eventOutputFiles_.capacity()) {
-      // below the limit, create on demand
-      if (!eventOutputFiles_.try_pop(outputFile)) {
-        auto names = physicalAndLogicalNameForNewFile();
-        outputFile = std::make_shared<RootOutputFile>(this, names.first, names.second, mergePtr_->GetFile());
-      } else {
-        eventFileCount_--;
-      }
-    } else {
-      // over the limit, block if not available
-      eventFileCount_--;
-      eventOutputFiles_.pop(outputFile);
+    if (!eventOutputFiles_.try_pop(outputFileRec)) {
+      auto names = physicalAndLogicalNameForNewFile();
+      outputFileRec.eventFile_ = std::make_unique<RootOutputFile>(this, names.first, names.second, mergePtr_->GetFile());
+      outputFileRec.fileIndex_ = eventFileCount_++;
     }
-
-    outputFile->writeOne(e);
-    outputFile->writeEvents();
+    outputFileRec.eventFile_->writeOne(e);
+    outputFileRec.eventFile_->writeEvents();
 
     if (!statusFileName().empty()) {
       std::lock_guard<std::mutex> lock{notYetThreadSafe_}; // NOTE: urrrggggghhhhh...
@@ -150,14 +139,13 @@ namespace edm {
 
   //NOTE: assumed serialized by framework
   void ParallelPoolOutputModule::reallyCloseFile() {
-    std::shared_ptr<RootOutputFile> outputFile;
+    EventFileRec outputFileRec;
 
     LogSystem(moduleLabel_) << "Event file count " << eventFileCount_ << " queue size " << eventOutputFiles_.size();
     //NOTE: need to merge the provenance from the writers before deleting!
-    while (eventOutputFiles_.try_pop(outputFile)) {
-      assert(outputFile.use_count() == 1);
-      outputFile->writeEvents(true);
-      outputFile = nullptr;
+    while (eventOutputFiles_.try_pop(outputFileRec)) {
+      outputFileRec.eventFile_->writeEvents(true);
+      outputFileRec.eventFile_ = nullptr;
     }
     reallyCloseFileBase(rootOutputFile_, true);
     rootOutputFile_ = nullptr;
