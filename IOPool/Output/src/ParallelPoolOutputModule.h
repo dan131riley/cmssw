@@ -15,7 +15,7 @@
 #include "IOPool/Output/interface/PoolOutputModuleBase.h"
 #include "FWCore/Framework/interface/limited/OutputModule.h"
 
-#include "tbb/concurrent_queue.h"
+#include "tbb/concurrent_priority_queue.h"
 
 class TTree;
 namespace ROOT {
