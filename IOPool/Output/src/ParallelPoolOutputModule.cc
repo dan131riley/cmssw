@@ -43,7 +43,9 @@ namespace edm {
     PoolOutputModuleBase(pset, wantAllEvents()),
     rootOutputFile_(),
     eventOutputFiles_(),
-    moduleLabel_(pset.getParameter<std::string>("@module_label")) {}
+    moduleLabel_(pset.getParameter<std::string>("@module_label")) {
+      queueSizeHistogram_.resize(pset.getUntrackedParameter<unsigned int>("concurrencyLimit"));
+    }
 
   ParallelPoolOutputModule::~ParallelPoolOutputModule() {
     // NOTE: bad idea?
@@ -114,10 +116,14 @@ namespace edm {
     if (!eventOutputFiles_.try_pop(outputFileRec)) {
       auto names = physicalAndLogicalNameForNewFile();
       outputFileRec.eventFile_ = std::make_unique<RootOutputFile>(this, names.first, names.second, mergePtr_->GetFile());
-      outputFileRec.fileIndex_ = eventFileCount_++;
     }
+
+    ++queueSizeHistogram_[eventOutputFiles_.size()];
+
     outputFileRec.eventFile_->writeOne(e);
     outputFileRec.eventFile_->writeEvents();
+
+    outputFileRec.entries_ = outputFileRec.eventFile_->getEntries(edm::poolNames::eventTreeName());
 
     if (!statusFileName().empty()) {
       std::lock_guard<std::mutex> lock{notYetThreadSafe_}; // NOTE: urrrggggghhhhh...
@@ -141,7 +147,10 @@ namespace edm {
   void ParallelPoolOutputModule::reallyCloseFile() {
     EventFileRec outputFileRec;
 
-    LogSystem(moduleLabel_) << "Event file count " << eventFileCount_ << " queue size " << eventOutputFiles_.size();
+    LogSystem(moduleLabel_) << "Queue size " << eventOutputFiles_.size();
+    for (size_t i = 0; i < queueSizeHistogram_.size(); ++i) {
+      LogAbsolute(moduleLabel_) << std::setw(6) << i << " : " << std::setw(6) << queueSizeHistogram_[i];
+    }
     //NOTE: need to merge the provenance from the writers before deleting!
     while (eventOutputFiles_.try_pop(outputFileRec)) {
       outputFileRec.eventFile_->writeEvents(true);
@@ -150,7 +159,6 @@ namespace edm {
     reallyCloseFileBase(rootOutputFile_, true);
     rootOutputFile_ = nullptr;
     mergePtr_ = nullptr;
-    eventFileCount_ = 0;
   }
   bool ParallelPoolOutputModule::isFileOpen() const { return rootOutputFile_.get() != nullptr; }
   bool ParallelPoolOutputModule::shouldWeCloseFile() const { return rootOutputFile_->shouldWeCloseFile(); }

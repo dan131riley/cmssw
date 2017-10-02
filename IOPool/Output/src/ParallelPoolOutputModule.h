@@ -72,16 +72,16 @@ namespace edm {
 
     struct EventFileRec {
       std::unique_ptr<RootOutputFile> eventFile_;
-      unsigned int fileIndex_{};
+      Long64_t entries_{};
     };
     struct EventFileRecComp {
-      bool operator()(const EventFileRec& a, const EventFileRec& b) const { return a.fileIndex_ > b.fileIndex_; }
+      bool operator()(const EventFileRec& a, const EventFileRec& b) const { return a.entries_ < b.entries_; }
     };
 
     typedef tbb::concurrent_priority_queue<EventFileRec, EventFileRecComp> EventOutputFiles;
     EventOutputFiles eventOutputFiles_;
-    std::atomic<unsigned int> eventFileCount_{};
     std::string moduleLabel_;
+    std::vector<unsigned int> queueSizeHistogram_; // NOTE: not atomic, may not be accurate
     std::mutex notYetThreadSafe_;
   };
 }
