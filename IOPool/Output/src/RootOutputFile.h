@@ -76,6 +76,8 @@ namespace edm {
 
     void resetCleanupBit();
     void fillSelectedProductList();
+    
+    Long64_t getEntries(const std::string& treeName) const;
 
     std::string const& fileName() const {return file_;}
 
