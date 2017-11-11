@@ -43,6 +43,7 @@ namespace edm {
     PoolOutputModuleBase(pset, wantAllEvents()),
     rootOutputFile_(),
     eventOutputFiles_(),
+    eventAutoSaveSize_(pset.getUntrackedParameter<int>("eventAutoSaveSize")),
     moduleLabel_(pset.getParameter<std::string>("@module_label")) {
       queueSizeHistogram_.resize(pset.getUntrackedParameter<unsigned int>("concurrencyLimit"));
     }
@@ -125,6 +126,10 @@ namespace edm {
 
     outputFileRec.entries_ = outputFileRec.eventFile_->getEntries(edm::poolNames::eventTreeName());
 
+    if (mergePtr_->GetQueueSize() > 1) {
+      LogSystem(moduleLabel_) << "TBufferMerger Queue size " << mergePtr_->GetQueueSize();
+    }
+
     if (!statusFileName().empty()) {
       std::lock_guard<std::mutex> lock{notYetThreadSafe_}; // NOTE: urrrggggghhhhh...
       std::ofstream statusFile(statusFileName().c_str());
@@ -174,8 +179,9 @@ namespace edm {
       throw Exception(errors::Configuration) << "PoolOutputModuleBase configured with unknown compression algorithm '" << compressionAlgorithm() << "'\n"
 					     << "Allowed compression algorithms are ZLIB and LZMA\n";
     }
-    mergePtr_ = std::make_shared<ROOT::Experimental::TBufferMerger>(names.first.c_str(), "recreate",
-                                                      ROOT::CompressionSettings(alg, compressionLevel()));
+    auto compress = ROOT::CompressionSettings(alg, compressionLevel());
+    mergePtr_ = std::make_shared<ROOT::Experimental::TBufferMerger>(names.first.c_str(), "recreate", compress);
+    mergePtr_->SetAutoSave(eventAutoSaveSize_);
     rootOutputFile_ = std::make_unique<RootOutputFile>(this, names.first, names.second, mergePtr_->GetFile());
   }
 
@@ -187,6 +193,7 @@ namespace edm {
 
   void
   ParallelPoolOutputModule::fillDescription(ParameterSetDescription& desc) {
+    desc.addUntracked<int>("eventAutoSaveSize",0)->setComment("Sets the ROOT TBufferMerger auto save size (in bytes) for the event TTree. The value sets how large the TBufferMerger queue must get before the queue is merged to the output file.  Large values reduce the overhead writing TTree AutoSave headers but also increase buffer memory use.");
     PoolOutputModuleBase::fillDescription(desc);
     OutputModule::fillDescription(desc);
   }
