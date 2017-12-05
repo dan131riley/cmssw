@@ -11,11 +11,13 @@
 //////////////////////////////////////////////////////////////////////
 
 #include <mutex>
+#include <functional>
 
 #include "IOPool/Output/interface/PoolOutputModuleBase.h"
 #include "FWCore/Framework/interface/limited/OutputModule.h"
 
 #include "tbb/concurrent_priority_queue.h"
+#include "tbb/task_arena.h"
 
 class TTree;
 namespace ROOT {
@@ -84,6 +86,8 @@ namespace edm {
     std::string moduleLabel_;
     std::vector<unsigned int> queueSizeHistogram_; // NOTE: not atomic, may not be accurate
     std::mutex notYetThreadSafe_;
+    std::shared_ptr<tbb::task_arena> taskArena_;
+    std::function<void(std::function<void()>)> mergeExec_;
   };
 }
 

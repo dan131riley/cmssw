@@ -34,6 +34,7 @@
 #include <fstream>
 #include <iomanip>
 #include <sstream>
+#include <future>
 #include "boost/algorithm/string.hpp"
 
 namespace edm {
@@ -44,7 +45,18 @@ namespace edm {
     rootOutputFile_(),
     eventOutputFiles_(),
     eventAutoSaveSize_(pset.getUntrackedParameter<int>("eventAutoSaveSize")),
-    moduleLabel_(pset.getParameter<std::string>("@module_label")) {
+    moduleLabel_(pset.getParameter<std::string>("@module_label")),
+    taskArena_(std::make_shared<tbb::task_arena>(tbb::task_arena::attach())) {
+      mergeExec_ = [this](const std::function<void()> &f){
+        std::promise<void> barrier;
+        auto fwrap = [&]() { 
+          auto set_value = [](decltype(barrier)* b) { b->set_value(); };
+          std::unique_ptr<decltype(barrier), decltype(set_value)> release(&barrier, set_value);
+          f();
+        };
+        taskArena_->enqueue(fwrap);
+        barrier.get_future().wait();
+      };
       queueSizeHistogram_.resize(pset.getUntrackedParameter<unsigned int>("concurrencyLimit"));
     }
 
@@ -179,9 +191,11 @@ namespace edm {
       throw Exception(errors::Configuration) << "PoolOutputModuleBase configured with unknown compression algorithm '" << compressionAlgorithm() << "'\n"
 					     << "Allowed compression algorithms are ZLIB and LZMA\n";
     }
+    alg = ROOT::kZLIB; // TMP
     auto compress = ROOT::CompressionSettings(alg, compressionLevel());
     mergePtr_ = std::make_shared<ROOT::Experimental::TBufferMerger>(names.first.c_str(), "recreate", compress);
     mergePtr_->SetAutoSave(eventAutoSaveSize_);
+    mergePtr_->RegisterMergerExec(mergeExec_);
     rootOutputFile_ = std::make_unique<RootOutputFile>(this, names.first, names.second, mergePtr_->GetFile());
   }
 
