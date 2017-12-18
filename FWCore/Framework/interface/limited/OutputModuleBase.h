@@ -105,11 +105,22 @@ namespace edm {
       BranchIDLists const* branchIDLists() const;
 
       ThinnedAssociationsHelper const* thinnedAssociationsHelper() const;
+<<<<<<< HEAD
 
       SubProcessParentageHelper const* subProcessParentageHelper() const { return subProcessParentageHelper_; }
 
       const ModuleDescription& moduleDescription() const { return moduleDescription_; }
 
+=======
+      SubProcessParentageHelper const* subProcessParentageHelper() const {
+        return subProcessParentageHelper_;
+      }
+
+      const ModuleDescription& moduleDescription() const {
+        return moduleDescription_;
+      }
+      
+>>>>>>> refactor PoolOutputModule and add ParallelPoolOutputModule
       //Output modules always need writeRun and writeLumi to be called
       bool wantsGlobalRuns() const { return true; }
       bool wantsGlobalLuminosityBlocks() const { return true; }
@@ -154,6 +165,9 @@ namespace edm {
                    ActivityRegistry*,
                    ModuleCallingContext const*);
       virtual void preActionBeforeRunEventAsync(WaitingTask* iTask, ModuleCallingContext const& iModuleCallingContext, Principal const& iPrincipal) const {}
+<<<<<<< HEAD
+>>>>>>> refactor PoolOutputModule and add ParallelPoolOutputModule
+=======
 >>>>>>> refactor PoolOutputModule and add ParallelPoolOutputModule
 
       bool doBeginRun(RunPrincipal const& rp, EventSetupImpl const& c, ModuleCallingContext const*);

@@ -314,6 +314,12 @@ namespace edm {
     return tree->GetEntries();
   }
 
+  Long64_t RootOutputFile::getEntries(const std::string& treeName) const {
+    auto filePtr = const_cast<TFile*>(filePtr_.get());
+    auto tree = dynamic_cast<TTree*>(filePtr->Get(treeName.c_str()));
+    return tree->GetEntries();
+  }
+
   void RootOutputFile::beginInputFile(FileBlock const& fb, int remainingEvents) {
     // Reset per input file information
     whyNotFastClonable_ = om_->whyNotFastClonable();
