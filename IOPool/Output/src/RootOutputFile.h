@@ -31,7 +31,7 @@
 #include "DataFormats/Provenance/interface/StoredMergeableRunProductMetadata.h"
 #include "DataFormats/Provenance/interface/RunAuxiliary.h"
 #include "DataFormats/Provenance/interface/SelectedProducts.h"
-#include "IOPool/Output/interface/PoolOutputModule.h"
+#include "IOPool/Output/interface/PoolOutputModuleBase.h"
 #include "IOPool/Output/src/RootOutputTree.h"
 
 class TTree;
@@ -40,18 +40,20 @@ class TClass;
 
 namespace edm {
   class OccurrenceForOutput;
-  class PoolOutputModule;
+  class PoolOutputModuleBase;
 
   class RootOutputFile {
   public:
-    typedef PoolOutputModule::OutputItem OutputItem;
-    typedef PoolOutputModule::OutputItemList OutputItemList;
+    typedef PoolOutputModuleBase::OutputItem OutputItem;
+    typedef PoolOutputModuleBase::OutputItemList OutputItemList;
     typedef std::array<edm::propagate_const<RootOutputTree*>, NumBranchTypes> RootOutputTreePtrArray;
     explicit RootOutputFile(PoolOutputModule* om, std::string const& fileName,
                             std::string const& logicalFileName,
-                            std::vector<std::string> const& processesWithSelectedMergeableRunProducts);
+                            std::vector<std::string> const& processesWithSelectedMergeableRunProducts,
+                            std::shared_ptr<TFile> filePtrIn = {});
+
     ~RootOutputFile() {}
-    void writeOne(EventForOutput const& e);
+    void writeOne(EventForOutput const& e, bool fillEvent = true);
     //void endFile();
     void writeLuminosityBlock(LuminosityBlockForOutput const& lb);
     void writeRun(RunForOutput const& r);
@@ -66,11 +68,17 @@ namespace edm {
     void writeBranchIDListRegistry();
     void writeThinnedAssociationsHelper();
     void writeProductDependencies();
+    void writeEvents(bool forceWrite, bool writeEvents);
 
-    void finishEndFile();
+    void finishEndFile(bool doWrite = false);
     void beginInputFile(FileBlock const& fb, int remainingEvents);
     void respondToCloseInputFile(FileBlock const& fb);
     bool shouldWeCloseFile() const;
+
+    void resetCleanupBit();
+    void fillSelectedProductList();
+    
+    Long64_t getEntries(const std::string& treeName) const;
 
     std::string const& fileName() const {return file_;}
 
@@ -79,11 +87,15 @@ namespace edm {
     //-------------------------------
     // Local types
     //
+    typedef std::vector<const void*> OutputProductList;
+    typedef std::array<OutputProductList, NumBranchTypes> OutputProductListArray;
 
     //-------------------------------
     // Private functions
 
     void setBranchAliases(TTree* tree, SelectedProducts const& branches) const;
+
+    const WrapperBase* dummyProduct(const OutputItem& item);
 
     void fillBranches(BranchType const& branchType,
                       OccurrenceForOutput const& occurrence,
@@ -110,9 +122,10 @@ namespace edm {
     std::string file_;
     std::string logicalFile_;
     JobReport::Token reportToken_;
-    edm::propagate_const<PoolOutputModule*> om_;
+    edm::propagate_const<PoolOutputModuleBase*> om_;
     int whyNotFastClonable_;
     bool canFastCloneAux_;
+    bool parallelOutput_;
     edm::propagate_const<std::shared_ptr<TFile>> filePtr_;
     FileID fid_;
     IndexIntoFile::EntryNumber_t eventEntryNumber_;
@@ -142,6 +155,8 @@ namespace edm {
     std::map<ParentageID,unsigned int> parentageIDs_;
     std::set<BranchID> branchesWithStoredHistory_;
     edm::propagate_const<TClass*> wrapperBaseTClass_;
+    std::map<TypeID, std::unique_ptr<WrapperBase>> dummies_;
+    OutputProductListArray selectedOutputProductList_;
   };
 
 }
