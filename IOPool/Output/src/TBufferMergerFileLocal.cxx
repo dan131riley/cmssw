@@ -16,23 +16,23 @@
 namespace ROOT {
 namespace Experimental {
 
-TBufferMergerFileLocal::TBufferMergerFileLocal(TBufferMergerLocal &m)
+TBufferMergerLocalFile::TBufferMergerLocalFile(TBufferMergerLocal &m)
    : TMemFile(m.fMerger.GetOutputFile()->GetName(), "RECREATE", "",
               m.fMerger.GetOutputFile()->GetCompressionSettings()),
      fMerger(m)
 {
 }
 
-TBufferMergerFileLocal::~TBufferMergerFileLocal()
+TBufferMergerLocalFile::~TBufferMergerLocalFile()
 {
 }
 
-Int_t TBufferMergerFileLocal::Write(const char *name, Int_t opt, Int_t bufsize)
+Int_t TBufferMergerLocalFile::Write(const char *name, Int_t opt, Int_t bufsize)
 {
    Int_t nbytes = TMemFile::Write(name, opt, bufsize);
 
    if (nbytes) {
-      TBufferFile *buffer = new TBufferFile(TBuffer::kWrite);
+      TBufferFile *buffer = new TBufferFile(TBuffer::kWrite, GetSize());
       CopyTo(*buffer);
       buffer->SetReadMode();
       fMerger.Push(buffer);

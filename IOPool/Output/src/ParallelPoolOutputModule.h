@@ -26,14 +26,12 @@ namespace ROOT {
     class TBufferMergerLocal;
   }
 }
-//#define USE_TBUFFERMERGER
+#define USE_TBUFFERMERGER
 #ifdef USE_TBUFFERMERGER
 using MergerType = ROOT::Experimental::TBufferMerger;
 #else
 using MergerType = ROOT::Experimental::TBufferMergerLocal;
 #endif
-  }
-}
 
 namespace edm {
 

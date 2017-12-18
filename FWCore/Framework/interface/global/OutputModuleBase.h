@@ -105,21 +105,10 @@ namespace edm {
 
       ThinnedAssociationsHelper const* thinnedAssociationsHelper() const;
 
-<<<<<<< HEAD
       SubProcessParentageHelper const* subProcessParentageHelper() const { return subProcessParentageHelper_; }
 
       const ModuleDescription& moduleDescription() const { return moduleDescription_; }
 
-=======
-      SubProcessParentageHelper const* subProcessParentageHelper() const {
-         return subProcessParentageHelper_;
-      }
-
-      const ModuleDescription& moduleDescription() const {
-        return moduleDescription_;
-      }
-      
->>>>>>> refactor PoolOutputModule and add ParallelPoolOutputModule
       //Output modules always need writeRun and writeLumi to be called
       bool wantsGlobalRuns() const { return true; }
       bool wantsGlobalLuminosityBlocks() const { return true; }
@@ -150,21 +139,11 @@ namespace edm {
                                       EventSetupImpl const& c,
                                       ModuleCallingContext const*);
 
-<<<<<<< HEAD
       bool doEvent(EventPrincipal const& ep, EventSetupImpl const& c, ActivityRegistry*, ModuleCallingContext const*);
       //For now this is a placeholder
       /*virtual*/ void preActionBeforeRunEventAsync(WaitingTask* iTask,
                                                     ModuleCallingContext const& iModuleCallingContext,
                                                     Principal const& iPrincipal) const {}
-=======
-      bool doEvent(EventPrincipal const& ep, EventSetup const& c,
-                   ActivityRegistry*,
-                   ModuleCallingContext const*);
-      virtual void preActionBeforeRunEventAsync(WaitingTask* iTask, ModuleCallingContext const& iModuleCallingContext, Principal const& iPrincipal) const {}
-<<<<<<< HEAD
->>>>>>> refactor PoolOutputModule and add ParallelPoolOutputModule
-=======
->>>>>>> refactor PoolOutputModule and add ParallelPoolOutputModule
 
       bool doBeginRun(RunPrincipal const& rp, EventSetupImpl const& c, ModuleCallingContext const*);
       bool doEndRun(RunPrincipal const& rp, EventSetupImpl const& c, ModuleCallingContext const*);
