@@ -65,9 +65,9 @@ namespace edm {
         false;
     }
 
-    TFile*
+    std::shared_ptr<TFile>
     openTFile(char const* name, int compressionLevel) {
-      TFile* file = TFile::Open(name, "recreate", "", compressionLevel);
+      std::shared_ptr<TFile> file(TFile::Open(name, "recreate", "", compressionLevel));
       std::exception_ptr e = edm::threadLocalException::getException();
       if(e != std::exception_ptr()) {
         edm::threadLocalException::setException(std::exception_ptr());
@@ -79,14 +79,16 @@ namespace edm {
 
   RootOutputFile::RootOutputFile(PoolOutputModule* om, std::string const& fileName,
                                  std::string const& logicalFileName,
-                                 std::vector<std::string> const& processesWithSelectedMergeableRunProducts) :
+                                 std::vector<std::string> const& processesWithSelectedMergeableRunProducts,
+                                 std::shared_ptr<TFile> filePtrIn) :
       file_(fileName),
       logicalFile_(logicalFileName),
       reportToken_(0),
       om_(om),
       whyNotFastClonable_(om_->whyNotFastClonable()),
       canFastCloneAux_(false),
-      filePtr_(openTFile(file_.c_str(), om_->compressionLevel())),
+      parallelOutput_(filePtrIn != nullptr),
+      filePtr_(parallelOutput_ ? std::move(filePtrIn) : openTFile(file_.c_str(), om_->compressionLevel())),
       fid_(),
       eventEntryNumber_(0LL),
       lumiEntryNumber_(0LL),
@@ -120,7 +122,7 @@ namespace edm {
     } else if (om_->compressionAlgorithm() == std::string("LZMA")) {
       filePtr_->SetCompressionAlgorithm(ROOT::kLZMA);
     } else {
-      throw Exception(errors::Configuration) << "PoolOutputModule configured with unknown compression algorithm '" << om_->compressionAlgorithm() << "'\n"
+      throw Exception(errors::Configuration) << "PoolOutputModuleBase configured with unknown compression algorithm '" << om_->compressionAlgorithm() << "'\n"
 					     << "Allowed compression algorithms are ZLIB and LZMA\n";
     }
     if (-1 != om->eventAutoFlushSize()) {
@@ -148,12 +150,15 @@ namespace edm {
     for(int i = InEvent; i < NumBranchTypes; ++i) {
       BranchType branchType = static_cast<BranchType>(i);
       RootOutputTree *theTree = treePointers_[branchType];
-      for(auto const& item : om_->selectedOutputItemList()[branchType]) {
-        item.product_ = nullptr;
+      auto const& items = om_->selectedOutputItemList()[branchType];
+      auto& products = selectedOutputProductList_[branchType];
+      products.resize(items.size());
+      for (size_t i = 0; i < items.size(); ++i) {
+        auto const& item = items[i];
         BranchDescription const& desc = *item.branchDescription_;
         theTree->addBranch(desc.branchName(),
                            desc.wrappedName(),
-                           item.product_,
+                           products[i],
                            item.splitLevel_,
                            item.basketSize_,
                            item.branchDescription_->produced());
@@ -163,8 +168,10 @@ namespace edm {
     }
     // Don't split metadata tree or event description tree
     metaDataTree_         = RootOutputTree::makeTTree(filePtr_.get(), poolNames::metaDataTreeName(), 0);
-    parentageTree_ = RootOutputTree::makeTTree(filePtr_.get(), poolNames::parentageTreeName(), 0);
+    parentageTree_        = RootOutputTree::makeTTree(filePtr_.get(), poolNames::parentageTreeName(), 0);
     parameterSetsTree_    = RootOutputTree::makeTTree(filePtr_.get(), poolNames::parameterSetsTreeName(), 0);
+
+    //if (parallelOutput_) resetCleanupBit(); // avoid unresolved bug in ROOT, may leak memory
 
     fid_ = FileID(createGlobalIdentifier());
 
@@ -301,6 +308,12 @@ namespace edm {
     }
   }
 
+  Long64_t RootOutputFile::getEntries(const std::string& treeName) const {
+    auto filePtr = const_cast<TFile*>(filePtr_.get());
+    auto tree = dynamic_cast<TTree*>(filePtr->Get(treeName.c_str()));
+    return tree->GetEntries();
+  }
+
   void RootOutputFile::beginInputFile(FileBlock const& fb, int remainingEvents) {
 
     // Reset per input file information
@@ -361,7 +374,7 @@ namespace edm {
                           fb.fileFormatVersion().noMetaDataTrees() &&
                           !om_->hasNewlyDroppedBranch()[InEvent] &&
                           !fb.hasNewlyDroppedBranch()[InEvent] &&
-                          om_->dropMetaData() == PoolOutputModule::DropNone &&
+                          om_->dropMetaData() == PoolOutputModuleBase::DropNone &&
                           !reg->anyProductProduced() &&
                           !fb.modifiedIDs() &&
                           fb.branchListIndexesUnchanged();
@@ -382,6 +395,16 @@ namespace edm {
     }
   }
 
+  void RootOutputFile::resetCleanupBit() {
+    // avoid unresolved bug in ROOT
+    eventTree_.tree()->ResetBit(kMustCleanup);
+    lumiTree_.tree()->ResetBit(kMustCleanup);
+    runTree_.tree()->ResetBit(kMustCleanup);
+    metaDataTree_->ResetBit(kMustCleanup);
+    parameterSetsTree_->ResetBit(kMustCleanup);
+    parentageTree_->ResetBit(kMustCleanup);
+  }
+
   void RootOutputFile::respondToCloseInputFile(FileBlock const&) {
     eventTree_.setEntries();
     lumiTree_.setEntries();
@@ -394,7 +417,7 @@ namespace edm {
     return(size >= om_->maxFileSize());
   }
 
-  void RootOutputFile::writeOne(EventForOutput const& e) {
+  void RootOutputFile::writeOne(EventForOutput const& e, bool fillEvent) {
     // Auxiliary branch
     pEventAux_ = &e.eventAuxiliary();
 
@@ -410,13 +433,13 @@ namespace edm {
     // which is done if and only if there is a produced product.
     Service<ConstProductRegistry> reg;
     EventSelectionIDVector esids = e.eventSelectionIDs();
-    if (reg->anyProductProduced() || !om_->wantAllEvents()) {
-      esids.push_back(om_->selectorConfig());
+    if (reg->anyProductProduced() || !om_->OMwantAllEvents()) {
+      esids.push_back(om_->OMselectorConfig());
     }
     pEventSelectionIDs_ = &esids;
     ProductProvenanceRetriever const* provRetriever = e.productProvenanceRetrieverPtr();
     assert(provRetriever);
-    fillBranches(InEvent, e, pEventEntryInfoVector_, provRetriever);
+    if (fillEvent) { fillBranches(InEvent, e, pEventEntryInfoVector_, provRetriever); }
 
     // Add the dataType to the job report if it hasn't already been done
     if(!dataTypeReported_) {
@@ -552,14 +575,14 @@ namespace edm {
   }
 
   void RootOutputFile::writeBranchIDListRegistry() {
-    BranchIDLists const* p = om_->branchIDLists();
+    BranchIDLists const* p = om_->OMbranchIDLists();
     TBranch* b = metaDataTree_->Branch(poolNames::branchIDListBranchName().c_str(), &p, om_->basketSize(), 0);
     assert(b);
     b->Fill();
   }
 
   void RootOutputFile::writeThinnedAssociationsHelper() {
-    ThinnedAssociationsHelper const* p = om_->thinnedAssociationsHelper();
+    ThinnedAssociationsHelper const* p = om_->OMthinnedAssociationsHelper();
     TBranch* b = metaDataTree_->Branch(poolNames::thinnedAssociationsHelperBranchName().c_str(), &p, om_->basketSize(), 0);
     assert(b);
     b->Fill();
@@ -608,7 +631,22 @@ namespace edm {
     b->Fill();
   }
 
-  void RootOutputFile::finishEndFile() {
+  void RootOutputFile::writeEvents(bool forceWrite, bool writeEvents) {
+    auto ttree = dynamic_cast<TTree*>(filePtr_->Get(edm::poolNames::eventTreeName().c_str()));
+    auto flushsize = ttree->GetAutoFlush();
+    auto entries = ttree->GetEntries();
+    if ((forceWrite && entries > 0) || (flushsize > 0 && entries >= flushsize)) {
+      LogSystem("RootOutputFile::writeEvents") << "Writing events " << (forceWrite ? "forced" : "flush")
+        << ", entries " << entries << " flushsize " << flushsize;
+      if (writeEvents) {
+        filePtr_->Write();
+      } else {
+        filePtr_->ResetAfterMerge(nullptr);
+      }
+    }
+  }
+
+  void RootOutputFile::finishEndFile(bool forceWrite) {
     metaDataTree_->SetEntries(-1);
     RootOutputTree::writeTTree(metaDataTree_);
     RootOutputTree::writeTTree(parameterSetsTree_);
@@ -620,9 +658,10 @@ namespace edm {
     // products.
     for(int i = InEvent; i < NumBranchTypes; ++i) {
       BranchType branchType = static_cast<BranchType>(i);
-      setBranchAliases(treePointers_[branchType]->tree(), om_->keptProducts()[branchType]);
+      setBranchAliases(treePointers_[branchType]->tree(), om_->OMkeptProducts()[branchType]);
       treePointers_[branchType]->writeTree();
     }
+    if (forceWrite) filePtr_->Write();
 
     // close the file -- mfp
     // Just to play it safe, zero all pointers to objects in the TFile to be closed.
@@ -665,15 +704,15 @@ namespace edm {
                                   bool produced,
                                   std::set<BranchID> const &iProducedIDs,
                                   std::set<StoredProductProvenance>& oToFill) {
-    assert(om_->dropMetaData() != PoolOutputModule::DropAll);
-    assert(produced || om_->dropMetaData() != PoolOutputModule::DropPrior);
-    if(om_->dropMetaData() == PoolOutputModule::DropDroppedPrior && !produced) return;
+    assert(om_->dropMetaData() != PoolOutputModuleBase::DropAll);
+    assert(produced || om_->dropMetaData() != PoolOutputModuleBase::DropPrior);
+    if(om_->dropMetaData() == PoolOutputModuleBase::DropDroppedPrior && !produced) return;
     std::vector<BranchID> const& parentIDs = iGetParents.parentage().parents();
     for(auto const& parentID : parentIDs) {
       branchesWithStoredHistory_.insert(parentID);
       ProductProvenance const* info = iMapper->branchIDToProvenance(parentID);
       if(info) {
-        if(om_->dropMetaData() == PoolOutputModule::DropNone || (iProducedIDs.end() != iProducedIDs.find(info->branchID()) ) ) {
+        if(om_->dropMetaData() == PoolOutputModuleBase::DropNone || (iProducedIDs.end() != iProducedIDs.find(info->branchID()) ) ) {
           if(insertProductProvenance(*info,oToFill) ) {
             //haven't seen this one yet
             insertAncestors(*info, iMapper, produced, iProducedIDs, oToFill);
@@ -683,18 +722,39 @@ namespace edm {
     }
   }
 
+  const WrapperBase* RootOutputFile::dummyProduct(const OutputItem& item)
+  {
+    auto id = item.branchDescription_->unwrappedTypeID();
+    auto it = dummies_.find(id);
+    if (dummies_.end() == it) {
+      // Add a null product and cache for reuse
+      TClass* cp = item.branchDescription_->wrappedType().getClass();
+      assert(cp != nullptr);
+      int offset = cp->GetBaseClassOffset(wrapperBaseTClass_);
+      void* p = cp->New();
+      dummies_[id] = getWrapperBasePtr(p, offset);
+    }
+    return dummies_[id].get();
+  }
+
+  void RootOutputFile::fillSelectedProductList() {
+    for(int i = InEvent; i < NumBranchTypes; ++i) {
+      BranchType branchType = static_cast<BranchType>(i);
+      auto const& items = om_->selectedOutputItemList()[branchType];
+      selectedOutputProductList_[branchType].resize(items.size());
+    }
+  }
+
   void RootOutputFile::fillBranches(
                 BranchType const& branchType,
                 OccurrenceForOutput const& occurrence,
                 StoredProductProvenanceVector* productProvenanceVecPtr,
                 ProductProvenanceRetriever const* provRetriever) {
 
-    std::vector<std::unique_ptr<WrapperBase> > dummies;
-
     OutputItemList const& items = om_->selectedOutputItemList()[branchType];
 
-    bool const doProvenance = (productProvenanceVecPtr != nullptr) && (om_->dropMetaData() != PoolOutputModule::DropAll);
-    bool const keepProvenanceForPrior = doProvenance && om_->dropMetaData() != PoolOutputModule::DropPrior;
+    bool const doProvenance = (productProvenanceVecPtr != nullptr) && (om_->dropMetaData() != PoolOutputModuleBase::DropAll);
+    bool const keepProvenanceForPrior = doProvenance && om_->dropMetaData() != PoolOutputModuleBase::DropPrior;
 
     bool const fastCloning = (branchType == InEvent) && (whyNotFastClonable_ == FileBlock::CanFastClone);
     std::set<StoredProductProvenance> provenanceToKeep;
@@ -704,7 +764,7 @@ namespace edm {
     // we may be storing meta data for only those products
     // We do this only for event products.
     std::set<BranchID> producedBranches;
-    if(doProvenance && branchType == InEvent && om_->dropMetaData() != PoolOutputModule::DropNone) {
+    if(doProvenance && branchType == InEvent && om_->dropMetaData() != PoolOutputModuleBase::DropNone) {
       Service<ConstProductRegistry> preg;
       for(auto bd : preg->allBranchDescriptions()) {
         if(bd->produced() && bd->branchType() == InEvent) {
@@ -713,9 +773,12 @@ namespace edm {
       }
     }
 
-    // Loop over EDProduct branches, possibly fill the provenance, and write the branch.
-    for(auto const& item : items) {
+    auto& products = selectedOutputProductList_[branchType];
+    assert(items.size() == products.size());
 
+    // Loop over EDProduct branches, possibly fill the provenance, and write the branch.
+    for (size_t i = 0; i < items.size(); ++i) {
+      auto const& item = items[i];
       BranchID const& id = item.branchDescription_->branchID();
       branchesWithStoredHistory_.insert(id);
 
@@ -734,16 +797,10 @@ namespace edm {
         }
         if(product == nullptr) {
           // No product with this ID is in the event.
-          // Add a null product.
-          TClass* cp = item.branchDescription_->wrappedType().getClass();
-          assert(cp != nullptr);
-          int offset = cp->GetBaseClassOffset(wrapperBaseTClass_);
-          void* p = cp->New();
-          std::unique_ptr<WrapperBase> dummy = getWrapperBasePtr(p, offset);
-          product = dummy.get();
-          dummies.emplace_back(std::move(dummy));
+          product = dummyProduct(item);
         }
-        item.product_ = product;
+        assert(product);
+        products[i] = product;
       }
       if (keepProvenance && productProvenance == nullptr) {
         productProvenance = provRetriever->branchIDToProvenance(item.branchDescription_->originalBranchID());
@@ -757,6 +814,7 @@ namespace edm {
     if(doProvenance) productProvenanceVecPtr->assign(provenanceToKeep.begin(), provenanceToKeep.end());
     treePointers_[branchType]->fillTree();
     if(doProvenance) productProvenanceVecPtr->clear();
+    //dummies_.clear(); //debug: restore old behavior
   }
 
   bool
