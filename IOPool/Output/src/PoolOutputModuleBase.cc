@@ -252,7 +252,7 @@ namespace edm {
     writeFileFormatVersion(rootOutputFile);
     writeFileIdentifier(rootOutputFile);
     writeIndexIntoFile(rootOutputFile);
-    writeStoredMergeableRunProductMetadata();
+    writeStoredMergeableRunProductMetadata(rootOutputFile);
     writeProcessHistoryRegistry(rootOutputFile);
     writeParameterSetRegistry(rootOutputFile);
     writeProductDescriptionRegistry(rootOutputFile);

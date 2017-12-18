@@ -105,7 +105,6 @@ namespace edm {
     reallyCloseFileBase(rootOutputFile_);
     rootOutputFile_ = nullptr;
   }
-
   bool PoolOutputModule::isFileOpen() const { return rootOutputFile_.get() != nullptr; }
   bool PoolOutputModule::shouldWeCloseFile() const { return rootOutputFile_->shouldWeCloseFile(); }
 
