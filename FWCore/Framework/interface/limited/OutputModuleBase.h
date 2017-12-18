@@ -49,6 +49,7 @@ namespace edm {
   class ActivityRegistry;
   class ProductRegistry;
   class ThinnedAssociationsHelper;
+  class SubProcessParentageHelper;
   class WaitingTask;
 
   template <typename T> class OutputModuleCommunicatorT;
@@ -97,7 +98,10 @@ namespace edm {
       BranchIDLists const* branchIDLists() const;
 
       ThinnedAssociationsHelper const* thinnedAssociationsHelper() const;
-      
+      SubProcessParentageHelper const* subProcessParentageHelper() const {
+        return subProcessParentageHelper_;
+      }
+
       const ModuleDescription& moduleDescription() const {
         return moduleDescription_;
       }
@@ -146,8 +150,7 @@ namespace edm {
       bool doEvent(EventPrincipal const& ep, EventSetup const& c,
                    ActivityRegistry*,
                    ModuleCallingContext const*);
-      //For now this is a placeholder
-      /*virtual*/ void preActionBeforeRunEventAsync(WaitingTask* iTask, ModuleCallingContext const& iModuleCallingContext, Principal const& iPrincipal) const {}
+      virtual void preActionBeforeRunEventAsync(WaitingTask* iTask, ModuleCallingContext const& iModuleCallingContext, Principal const& iPrincipal) const {}
 
       bool doBeginRun(RunPrincipal const& rp, EventSetup const& c,
                       ModuleCallingContext const*);
@@ -208,6 +211,8 @@ namespace edm {
       edm::propagate_const<std::unique_ptr<BranchIDLists>> branchIDLists_;
       BranchIDLists const* origBranchIDLists_;
 
+      SubProcessParentageHelper const* subProcessParentageHelper_;
+
       edm::propagate_const<std::unique_ptr<ThinnedAssociationsHelper>> thinnedAssociationsHelper_;
       std::map<BranchID, bool> keepAssociation_;
       LimitedTaskQueue queue_;
@@ -250,7 +255,7 @@ namespace edm {
       virtual void endJob(){}
       virtual void writeLuminosityBlock(LuminosityBlockForOutput const&) = 0;
       virtual void writeRun(RunForOutput const&) = 0;
-      virtual void openFile(FileBlock const&) const {}
+      virtual void openFile(FileBlock const&) {}
       virtual bool isFileOpen() const { return true; }
       
       virtual void preallocStreams(unsigned int){}
