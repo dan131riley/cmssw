@@ -45,18 +45,7 @@ namespace edm {
     rootOutputFile_(),
     eventOutputFiles_(),
     eventAutoSaveSize_(pset.getUntrackedParameter<int>("eventAutoSaveSize")),
-    moduleLabel_(pset.getParameter<std::string>("@module_label")),
-    taskArena_(std::make_shared<tbb::task_arena>(tbb::task_arena::attach())) {
-      mergeExec_ = [this](const std::function<void()> &f){
-        std::promise<void> barrier;
-        auto fwrap = [&]() { 
-          auto set_value = [](decltype(barrier)* b) { b->set_value(); };
-          std::unique_ptr<decltype(barrier), decltype(set_value)> release(&barrier, set_value);
-          f();
-        };
-        taskArena_->enqueue(fwrap);
-        barrier.get_future().wait();
-      };
+    moduleLabel_(pset.getParameter<std::string>("@module_label")) {
       queueSizeHistogram_.resize(pset.getUntrackedParameter<unsigned int>("concurrencyLimit"));
     }
 
@@ -169,6 +158,8 @@ namespace edm {
       LogAbsolute(moduleLabel_) << std::setw(6) << i << " : " << std::setw(6) << queueSizeHistogram_[i];
     }
     //NOTE: need to merge the provenance from the writers before deleting!
+    //TBD: writeIndexIntoFile, writeProcessHistoryRegistry, writeParameterSetRegistry, writeProductDescriptionRegistry
+    //     writeParentageRegistry, writeBranchIDListRegistry, writeThinnedAssociationsHelper, writeProductDependencies
     while (eventOutputFiles_.try_pop(outputFileRec)) {
       outputFileRec.eventFile_->writeEvents(true);
       outputFileRec.eventFile_ = nullptr;
@@ -195,7 +186,6 @@ namespace edm {
     auto compress = ROOT::CompressionSettings(alg, compressionLevel());
     mergePtr_ = std::make_shared<ROOT::Experimental::TBufferMerger>(names.first.c_str(), "recreate", compress);
     mergePtr_->SetAutoSave(eventAutoSaveSize_);
-    mergePtr_->RegisterCallback(mergeExec_);
     rootOutputFile_ = std::make_unique<RootOutputFile>(this, names.first, names.second, mergePtr_->GetFile());
   }
 
