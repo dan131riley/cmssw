@@ -190,7 +190,6 @@ namespace edm {
     auto compress = ROOT::CompressionSettings(alg, compressionLevel());
     mergePtr_ = std::make_shared<MergerType>(names.first.c_str(), "recreate", compress);
     mergePtr_->SetAutoSave(eventAutoSaveSize_);
-    mergePtr_->RegisterCallback(mergeExec_);
     rootOutputFile_ = std::make_unique<RootOutputFile>(this, names.first, names.second, mergePtr_->GetFile());
 
     // pre-allocate output buffers
