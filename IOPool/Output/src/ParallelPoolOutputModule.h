@@ -86,8 +86,6 @@ namespace edm {
     std::string moduleLabel_;
     std::vector<unsigned int> queueSizeHistogram_; // NOTE: not atomic, may not be accurate
     std::mutex notYetThreadSafe_;
-    std::shared_ptr<tbb::task_arena> taskArena_;
-    std::function<void(std::function<void()>)> mergeExec_;
   };
 }
 
