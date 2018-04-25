@@ -83,6 +83,7 @@ namespace edm {
     typedef tbb::concurrent_priority_queue<EventFileRec, EventFileRecComp> EventOutputFiles;
     EventOutputFiles eventOutputFiles_;
     int eventAutoSaveSize_;
+    unsigned int concurrency_;
     std::string moduleLabel_;
     std::vector<unsigned int> queueSizeHistogram_; // NOTE: not atomic, may not be accurate
     std::mutex notYetThreadSafe_;
