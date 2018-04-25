@@ -45,8 +45,9 @@ namespace edm {
     rootOutputFile_(),
     eventOutputFiles_(),
     eventAutoSaveSize_(pset.getUntrackedParameter<int>("eventAutoSaveSize")),
+    concurrency_(pset.getUntrackedParameter<unsigned int>("concurrencyLimit")),
     moduleLabel_(pset.getParameter<std::string>("@module_label")) {
-      queueSizeHistogram_.resize(pset.getUntrackedParameter<unsigned int>("concurrencyLimit"));
+      queueSizeHistogram_.resize(concurrency_);
     }
 
   ParallelPoolOutputModule::~ParallelPoolOutputModule() {
@@ -187,6 +188,13 @@ namespace edm {
     mergePtr_ = std::make_shared<ROOT::Experimental::TBufferMerger>(names.first.c_str(), "recreate", compress);
     mergePtr_->SetAutoSave(eventAutoSaveSize_);
     rootOutputFile_ = std::make_unique<RootOutputFile>(this, names.first, names.second, mergePtr_->GetFile());
+
+    // pre-allocate output buffers
+    for (auto i = 0U; i < concurrency_; ++i) {
+      EventFileRec outputFileRec;
+      outputFileRec.eventFile_ = std::make_unique<RootOutputFile>(this, names.first, names.second, mergePtr_->GetFile());
+      eventOutputFiles_.push(std::move(outputFileRec));
+    }
   }
 
   //NOTE: assumed serialized by framework
