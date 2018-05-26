@@ -29,7 +29,11 @@
 #include "RVersion.h"
 #include "Compression.h"
 
+#ifdef USE_TBUFFERMERGER
 #include "ROOT/TBufferMerger.hxx"
+#else
+#include "TBufferMergerLocal.hxx"
+#endif
 
 #include <fstream>
 #include <iomanip>
@@ -46,6 +50,8 @@ namespace edm {
     eventOutputFiles_(),
     eventAutoSaveSize_(pset.getUntrackedParameter<int>("eventAutoSaveSize")),
     concurrency_(pset.getUntrackedParameter<unsigned int>("concurrencyLimit")),
+    writeEvents_(pset.getUntrackedParameter<bool>("writeEvents")),
+    fillEvents_(pset.getUntrackedParameter<bool>("fillEvents")),
     moduleLabel_(pset.getParameter<std::string>("@module_label")) {
       queueSizeHistogram_.resize(concurrency_);
     }
@@ -56,7 +62,7 @@ namespace edm {
       LogWarning("ParallelPoolOutputModule::~ParallelPoolOutputModule") << "eventOutputFiles_ not empty";
       EventFileRec outputFileRec;
       while (eventOutputFiles_.try_pop(outputFileRec)) {
-        outputFileRec.eventFile_->writeEvents(true);
+        outputFileRec.eventFile_->writeEvents(true, writeEvents_);
         outputFileRec.eventFile_ = nullptr;
       }
     }
@@ -123,8 +129,8 @@ namespace edm {
 
     ++queueSizeHistogram_[eventOutputFiles_.size()];
 
-    outputFileRec.eventFile_->writeOne(e);
-    outputFileRec.eventFile_->writeEvents();
+    outputFileRec.eventFile_->writeOne(e, fillEvents_);
+    outputFileRec.eventFile_->writeEvents(false, writeEvents_);
 
     outputFileRec.entries_ = outputFileRec.eventFile_->getEntries(edm::poolNames::eventTreeName());
 
@@ -162,7 +168,7 @@ namespace edm {
     //TBD: writeIndexIntoFile, writeProcessHistoryRegistry, writeParameterSetRegistry, writeProductDescriptionRegistry
     //     writeParentageRegistry, writeBranchIDListRegistry, writeThinnedAssociationsHelper, writeProductDependencies
     while (eventOutputFiles_.try_pop(outputFileRec)) {
-      outputFileRec.eventFile_->writeEvents(true);
+      outputFileRec.eventFile_->writeEvents(true, writeEvents_);
       outputFileRec.eventFile_ = nullptr;
     }
     reallyCloseFileBase(rootOutputFile_, true);
@@ -185,7 +191,7 @@ namespace edm {
     }
     alg = ROOT::kZLIB; // TMP
     auto compress = ROOT::CompressionSettings(alg, compressionLevel());
-    mergePtr_ = std::make_shared<ROOT::Experimental::TBufferMerger>(names.first.c_str(), "recreate", compress);
+    mergePtr_ = std::make_shared<MergerType>(names.first.c_str(), "recreate", compress);
     mergePtr_->SetAutoSave(eventAutoSaveSize_);
     rootOutputFile_ = std::make_unique<RootOutputFile>(this, names.first, names.second, mergePtr_->GetFile());
 
@@ -206,6 +212,8 @@ namespace edm {
   void
   ParallelPoolOutputModule::fillDescription(ParameterSetDescription& desc) {
     desc.addUntracked<int>("eventAutoSaveSize",0)->setComment("Sets the ROOT TBufferMerger auto save size (in bytes) for the event TTree. The value sets how large the TBufferMerger queue must get before the queue is merged to the output file.  Large values reduce the overhead writing TTree AutoSave headers but also increase buffer memory use.");
+    desc.addUntracked<bool>("writeEvents",true)->setComment("Write events to the output file (true) or discard (false)");
+    desc.addUntracked<bool>("fillEvents",true)->setComment("Fill events to the output tree (true) or discard (false)");
     PoolOutputModuleBase::fillDescription(desc);
     OutputModule::fillDescription(desc);
   }

@@ -168,7 +168,7 @@ namespace edm {
     }
     // Don't split metadata tree or event description tree
     metaDataTree_         = RootOutputTree::makeTTree(filePtr_.get(), poolNames::metaDataTreeName(), 0);
-    parentageTree_ = RootOutputTree::makeTTree(filePtr_.get(), poolNames::parentageTreeName(), 0);
+    parentageTree_        = RootOutputTree::makeTTree(filePtr_.get(), poolNames::parentageTreeName(), 0);
     parameterSetsTree_    = RootOutputTree::makeTTree(filePtr_.get(), poolNames::parameterSetsTreeName(), 0);
 
     //if (parallelOutput_) resetCleanupBit(); // avoid unresolved bug in ROOT, may leak memory
@@ -417,7 +417,7 @@ namespace edm {
     return(size >= om_->maxFileSize());
   }
 
-  void RootOutputFile::writeOne(EventForOutput const& e) {
+  void RootOutputFile::writeOne(EventForOutput const& e, bool fillEvent) {
     // Auxiliary branch
     pEventAux_ = &e.eventAuxiliary();
 
@@ -439,7 +439,7 @@ namespace edm {
     pEventSelectionIDs_ = &esids;
     ProductProvenanceRetriever const* provRetriever = e.productProvenanceRetrieverPtr();
     assert(provRetriever);
-    fillBranches(InEvent, e, pEventEntryInfoVector_, provRetriever);
+    if (fillEvent) { fillBranches(InEvent, e, pEventEntryInfoVector_, provRetriever); }
 
     // Add the dataType to the job report if it hasn't already been done
     if(!dataTypeReported_) {
@@ -631,17 +631,22 @@ namespace edm {
     b->Fill();
   }
 
-  void RootOutputFile::writeEvents(bool doWrite) {
+  void RootOutputFile::writeEvents(bool forceWrite, bool writeEvents) {
     auto ttree = dynamic_cast<TTree*>(filePtr_->Get(edm::poolNames::eventTreeName().c_str()));
     auto flushsize = ttree->GetAutoFlush();
-    if (doWrite || (flushsize > 0 && ttree->GetEntries() >= flushsize)) {
-      LogSystem("RootOutputFile::writeEvents") << "Writing events " << (doWrite ? "forced" : "flush")
-        << ", entries " << ttree->GetEntries() << " flushsize " << flushsize;
-      filePtr_->Write();
+    auto entries = ttree->GetEntries();
+    if ((forceWrite && entries > 0) || (flushsize > 0 && entries >= flushsize)) {
+      LogSystem("RootOutputFile::writeEvents") << "Writing events " << (forceWrite ? "forced" : "flush")
+        << ", entries " << entries << " flushsize " << flushsize;
+      if (writeEvents) {
+        filePtr_->Write();
+      } else {
+        filePtr_->ResetAfterMerge(nullptr);
+      }
     }
   }
 
-  void RootOutputFile::finishEndFile(bool doWrite) {
+  void RootOutputFile::finishEndFile(bool forceWrite) {
     metaDataTree_->SetEntries(-1);
     RootOutputTree::writeTTree(metaDataTree_);
     RootOutputTree::writeTTree(parameterSetsTree_);
@@ -656,7 +661,7 @@ namespace edm {
       setBranchAliases(treePointers_[branchType]->tree(), om_->OMkeptProducts()[branchType]);
       treePointers_[branchType]->writeTree();
     }
-    if (doWrite) filePtr_->Write();
+    if (forceWrite) filePtr_->Write();
 
     // close the file -- mfp
     // Just to play it safe, zero all pointers to objects in the TFile to be closed.
