@@ -32,8 +32,6 @@ using MergerType = ROOT::Experimental::TBufferMerger;
 #else
 using MergerType = ROOT::Experimental::TBufferMergerLocal;
 #endif
-  }
-}
 
 namespace edm {
 
