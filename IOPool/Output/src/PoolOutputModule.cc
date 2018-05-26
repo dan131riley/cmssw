@@ -82,6 +82,10 @@ namespace edm {
 
   PoolOutputModule::~PoolOutputModule() {}
 
+  void PoolOutputModule::setProcessesWithSelectedMergeableRunProducts(std::set<std::string> const& processes) {
+    setProcessesWithSelectedMergeableRunProductsBase(processes);
+  }
+
   void PoolOutputModule::write(EventForOutput const& e) {
     updateBranchParents(e, subProcessParentageHelper());
     rootOutputFile_->writeOne(e);
