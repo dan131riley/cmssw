@@ -91,11 +91,8 @@ namespace edm {
     EventOutputFiles eventOutputFiles_;
     int eventAutoSaveSize_;
     unsigned int concurrency_;
-<<<<<<< HEAD
     bool writeEvents_;
     bool fillEvents_;
-=======
->>>>>>> pre-allocate buffers
     std::string moduleLabel_;
     std::vector<unsigned int> queueSizeHistogram_; // NOTE: not atomic, may not be accurate
     std::mutex notYetThreadSafe_;
