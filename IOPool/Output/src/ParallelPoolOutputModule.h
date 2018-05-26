@@ -23,8 +23,15 @@ class TTree;
 namespace ROOT {
   namespace Experimental {
     class TBufferMerger;
+    class TBufferMergerLocal;
   }
 }
+//#define USE_TBUFFERMERGER
+#ifdef USE_TBUFFERMERGER
+using MergerType = ROOT::Experimental::TBufferMerger;
+#else
+using MergerType = ROOT::Experimental::TBufferMergerLocal;
+#endif
 
 namespace edm {
 
@@ -69,7 +76,7 @@ namespace edm {
     void reallyOpenFile();
     void beginInputFile(FileBlock const& fb);
 
-    edm::propagate_const<std::shared_ptr<ROOT::Experimental::TBufferMerger>> mergePtr_;
+    edm::propagate_const<std::shared_ptr<MergerType>> mergePtr_;
     edm::propagate_const<std::unique_ptr<RootOutputFile>> rootOutputFile_;
 
     struct EventFileRec {
@@ -84,6 +91,8 @@ namespace edm {
     EventOutputFiles eventOutputFiles_;
     int eventAutoSaveSize_;
     unsigned int concurrency_;
+    bool writeEvents_;
+    bool fillEvents_;
     std::string moduleLabel_;
     std::vector<unsigned int> queueSizeHistogram_; // NOTE: not atomic, may not be accurate
     std::mutex notYetThreadSafe_;

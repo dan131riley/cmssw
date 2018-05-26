@@ -53,7 +53,7 @@ namespace edm {
     explicit RootOutputFile(PoolOutputModuleBase* om, std::string const& fileName,
                             std::string const& logicalFileName, std::shared_ptr<TFile> filePtrIn = {});
     ~RootOutputFile() {}
-    void writeOne(EventForOutput const& e);
+    void writeOne(EventForOutput const& e, bool fillEvent = true);
     //void endFile();
     void writeLuminosityBlock(LuminosityBlockForOutput const& lb);
     void writeRun(RunForOutput const& r);
@@ -67,7 +67,7 @@ namespace edm {
     void writeBranchIDListRegistry();
     void writeThinnedAssociationsHelper();
     void writeProductDependencies();
-    void writeEvents(bool doWrite = false);
+    void writeEvents(bool forceWrite, bool writeEvents);
 
     void finishEndFile(bool doWrite = false);
     void beginInputFile(FileBlock const& fb, int remainingEvents);
