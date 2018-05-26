@@ -77,7 +77,7 @@ namespace edm {
     }
   }
 
-  RootOutputFile::RootOutputFile(PoolOutputModule* om, std::string const& fileName,
+  RootOutputFile::RootOutputFile(PoolOutputModuleBase* om, std::string const& fileName,
                                  std::string const& logicalFileName,
                                  std::vector<std::string> const& processesWithSelectedMergeableRunProducts,
                                  std::shared_ptr<TFile> filePtrIn) :

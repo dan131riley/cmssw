@@ -41,6 +41,7 @@ namespace edm {
     ///allow inheriting classes to override but still be able to call this method in the overridden version
     bool shouldWeCloseFile() const override;
     void write(EventForOutput const& e) override;
+    void setProcessesWithSelectedMergeableRunProducts(std::set<std::string> const&) override;
 
   private:
     void preActionBeforeRunEventAsync(WaitingTask* iTask, ModuleCallingContext const& iModuleCallingContext, Principal const& iPrincipal) const override;
