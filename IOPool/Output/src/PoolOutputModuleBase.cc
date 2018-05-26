@@ -241,7 +241,7 @@ namespace edm {
   PoolOutputModuleBase::~PoolOutputModuleBase() noexcept (false) {
   }
 
-  void PoolOutputModule::setProcessesWithSelectedMergeableRunProducts(std::set<std::string> const& processes) {
+  void PoolOutputModuleBase::setProcessesWithSelectedMergeableRunProductsBase(std::set<std::string> const& processes) {
     processesWithSelectedMergeableRunProducts_.assign(processes.begin(), processes.end());
   }
 

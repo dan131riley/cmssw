@@ -146,6 +146,9 @@ namespace edm {
     std::string const& statusFileName() const {return statusFileName_;}
     bool initializedFromInput() { return initializedFromInput_; }
 
+    void setProcessesWithSelectedMergeableRunProductsBase(std::set<std::string> const&);
+    const std::vector<std::string>& processesWithSelectedMergeableRunProducts() { return processesWithSelectedMergeableRunProducts_; }
+
   private:
     struct BranchIDhash {
       BranchIDhash() {}
@@ -161,8 +164,6 @@ namespace edm {
         return b.smallHash();
       }
     };
-
-    void setProcessesWithSelectedMergeableRunProducts(std::set<std::string> const&) override;
 
     typedef tbb::concurrent_unordered_set<ParentageID, ParentageIDhash> ParentSet;
     typedef tbb::concurrent_unordered_map<BranchID, ParentSet, BranchIDhash> BranchParents;
