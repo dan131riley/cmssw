@@ -122,11 +122,8 @@ namespace edm {
     auto pushfile = [&](decltype(outputFileRec)* f) { eventOutputFiles_.push(std::move(*f)); };
     std::unique_ptr<decltype(outputFileRec), decltype(pushfile)> sentry(&outputFileRec, pushfile);
 
-    if (!eventOutputFiles_.try_pop(outputFileRec)) {
-      auto names = physicalAndLogicalNameForNewFile();
-      outputFileRec.eventFile_ = std::make_unique<RootOutputFile>(this, names.first, names.second, mergePtr_->GetFile());
-    }
-
+    auto gotrec = eventOutputFiles_.try_pop(outputFileRec);
+    assert(gotrec);
     ++queueSizeHistogram_[eventOutputFiles_.size()];
 
     outputFileRec.eventFile_->writeOne(e, fillEvents_);
