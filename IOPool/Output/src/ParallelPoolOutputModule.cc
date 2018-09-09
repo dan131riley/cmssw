@@ -68,6 +68,10 @@ namespace edm {
     }
   }
 
+  void ParallelPoolOutputModule::setProcessesWithSelectedMergeableRunProducts(std::set<std::string> const& processes) {
+    setProcessesWithSelectedMergeableRunProductsBase(processes);
+  }
+
   void ParallelPoolOutputModule::beginJob() {
     beginJobBase();
   }
@@ -190,12 +194,14 @@ namespace edm {
     auto compress = ROOT::CompressionSettings(alg, compressionLevel());
     mergePtr_ = std::make_shared<MergerType>(names.first.c_str(), "recreate", compress);
     mergePtr_->SetAutoSave(eventAutoSaveSize_);
-    rootOutputFile_ = std::make_unique<RootOutputFile>(this, names.first, names.second, mergePtr_->GetFile());
+    rootOutputFile_ = std::make_unique<RootOutputFile>(this, names.first, names.second,
+                                                       processesWithSelectedMergeableRunProducts(), mergePtr_->GetFile());
 
     // pre-allocate output buffers
     for (auto i = 0U; i < concurrency_; ++i) {
       EventFileRec outputFileRec;
-      outputFileRec.eventFile_ = std::make_unique<RootOutputFile>(this, names.first, names.second, mergePtr_->GetFile());
+      outputFileRec.eventFile_ = std::make_unique<RootOutputFile>(this, names.first, names.second,
+                                                                  processesWithSelectedMergeableRunProducts(), mergePtr_->GetFile());
       eventOutputFiles_.push(std::move(outputFileRec));
     }
   }

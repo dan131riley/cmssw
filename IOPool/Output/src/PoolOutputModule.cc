@@ -83,6 +83,10 @@ namespace edm {
   PoolOutputModule::~PoolOutputModule() {
   }
 
+  void PoolOutputModule::setProcessesWithSelectedMergeableRunProducts(std::set<std::string> const& processes) {
+    setProcessesWithSelectedMergeableRunProductsBase(processes);
+  }
+
   void PoolOutputModule::write(EventForOutput const& e) {
     updateBranchParents(e, subProcessParentageHelper());
     rootOutputFile_->writeOne(e);
@@ -111,7 +115,7 @@ namespace edm {
   void PoolOutputModule::reallyOpenFile() {
     auto names = physicalAndLogicalNameForNewFile();
     rootOutputFile_ = std::make_unique<RootOutputFile>(this, names.first, names.second,
-                                                       processesWithSelectedMergeableRunProducts_); // propagate_const<T> has no reset() function
+                                                       processesWithSelectedMergeableRunProducts()); // propagate_const<T> has no reset() function
   }
 
   void

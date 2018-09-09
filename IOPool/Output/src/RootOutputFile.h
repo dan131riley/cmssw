@@ -47,7 +47,7 @@ namespace edm {
     typedef PoolOutputModuleBase::OutputItem OutputItem;
     typedef PoolOutputModuleBase::OutputItemList OutputItemList;
     typedef std::array<edm::propagate_const<RootOutputTree*>, NumBranchTypes> RootOutputTreePtrArray;
-    explicit RootOutputFile(PoolOutputModule* om, std::string const& fileName,
+    explicit RootOutputFile(PoolOutputModuleBase* om, std::string const& fileName,
                             std::string const& logicalFileName,
                             std::vector<std::string> const& processesWithSelectedMergeableRunProducts,
                             std::shared_ptr<TFile> filePtrIn = {});
