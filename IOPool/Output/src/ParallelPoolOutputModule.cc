@@ -127,7 +127,7 @@ namespace edm {
     std::unique_ptr<decltype(outputFileRec), decltype(pushfile)> sentry(&outputFileRec, pushfile);
 
     auto gotrec = eventOutputFiles_.try_pop(outputFileRec);
-    assert(gotrec);
+    assert(gotrec); // failure is a logic error
     ++queueSizeHistogram_[eventOutputFiles_.size()];
 
     outputFileRec.eventFile_->writeOne(e, fillEvents_);
