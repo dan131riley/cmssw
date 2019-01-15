@@ -17,6 +17,7 @@
 #include "TVirtualMutex.h"
 
 #include <iostream>
+#include <utility>
 
 namespace ROOT {
 namespace Experimental {
@@ -26,27 +27,26 @@ TBufferMergerLocal::TBufferMergerLocal(const char *name, Option_t *option, Int_t
    // We cannot chain constructors or use in-place initialization here because
    // instantiating a TBufferMergerLocal should not alter gDirectory's state.
    TDirectory::TContext ctxt;
-   Init(TFile::Open(name, option, /* title */ name, compress));
+   Init(std::unique_ptr<TFile>(TFile::Open(name, option, /* title */ name, compress)));
 }
 
 TBufferMergerLocal::TBufferMergerLocal(std::unique_ptr<TFile> output)
 {
-   Init(output.release());
+   Init(std::move(output));
 }
 
-void TBufferMergerLocal::Init(TFile *output)
+void TBufferMergerLocal::Init(std::unique_ptr<TFile> output)
 {
    if (!output || !output->IsWritable() || output->IsZombie())
       Error("TBufferMergerLocal", "cannot write to output file");
 
-   std::cout << "TBufferMergerLocal::Init\n";
-   fMerger.OutputFile(std::unique_ptr<TFile>(output));
+   fMerger.OutputFile(std::move(output));
 }
 
 TBufferMergerLocal::~TBufferMergerLocal()
 {
-   for (auto f : fAttachedFiles)
-      if (!f.expired()) Fatal("TBufferMergerLocal", " TBufferMergerLocalFiles must be destroyed before the server");
+   for (const auto &f : fAttachedFiles)
+      if (!f.expired()) Fatal("TBufferMergerLocal", " TBufferMergerFileLocals must be destroyed before the server");
 
    if (!fQueue.empty())
       Merge();
@@ -64,11 +64,6 @@ std::shared_ptr<TBufferMergerFileLocal> TBufferMergerLocal::GetFile()
 size_t TBufferMergerLocal::GetQueueSize() const
 {
    return fQueue.size();
-}
-
-void TBufferMergerLocal::RegisterCallback(const std::function<void(void)> &f)
-{
-   fCallback = f;
 }
 
 void TBufferMergerLocal::Push(TBufferFile *buffer)
@@ -95,28 +90,26 @@ void TBufferMergerLocal::SetAutoSave(size_t size)
 
 void TBufferMergerLocal::Merge()
 {
-   std::unique_lock<std::mutex> m(fMergeMutex, std::try_to_lock);
-   if (m.owns_lock()) {
-     {
-        std::lock_guard<std::mutex> q(fQueueMutex);
+   if (fMergeMutex.try_lock()) {
+      std::queue<TBufferFile *> queue;
+      {
+         std::lock_guard<std::mutex> q(fQueueMutex);
+         std::swap(queue, fQueue);
+         fBuffered = 0;
+      }
 
-        while (!fQueue.empty()) {
-           std::unique_ptr<TBufferFile> buffer{fQueue.front()};
-           fMerger.AddAdoptFile(
-              new TMemFile(fMerger.GetOutputFileName(), buffer->Buffer(), buffer->BufferSize(), "READ"));
-           fQueue.pop();
-        }
+      while (!queue.empty()) {
+         std::unique_ptr<TBufferFile> buffer{queue.front()};
+         fMerger.AddAdoptFile(
+            new TMemFile(fMerger.GetOutputFileName(), buffer->Buffer(), buffer->BufferSize(), "READ"));
+         queue.pop();
+      }
 
-        fBuffered = 0;
-     }
-
-     fMerger.PartialMerge();
-     fMerger.Reset();
-
-     if (fCallback)
-        fCallback();
+      fMerger.PartialMerge(TFileMerger::kAll | TFileMerger::kIncremental | TFileMerger::kKeepCompression);
+      fMerger.Reset();
+      fMergeMutex.unlock();
    } else {
-     std::cout << "TBufferMergerLocal::Merge failed to acquire lock\n";
+      std::cout << "TBufferMergerLocal::Merge failed to acquire lock\n";
    }
 }
 
