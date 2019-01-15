@@ -26,16 +26,16 @@ namespace Experimental {
 class TBufferMergerFileLocal;
 
 /**
- * \class TBufferMerger TBufferMerger.hxx
+ * \class TBufferMergerLocal TBufferMergerLocal.hxx
  * \ingroup IO
  *
- * TBufferMerger is a class to facilitate writing data in
+ * TBufferMergerLocal is a class to facilitate writing data in
  * parallel from multiple threads, while writing to a single
  * output file. Its purpose is similar to TParallelMergingFile,
  * but instead of using processes that connect to a network
- * socket, TBufferMerger uses threads that each write to a
- * TBufferMergerFile, which in turn push data into a queue
- * managed by the TBufferMerger.
+ * socket, TBufferMergerLocal uses threads that each write to a
+ * TBufferMergerFileLocal, which in turn push data into a queue
+ * managed by the TBufferMergerLocal.
  */
 
 class TBufferMergerLocal {
@@ -45,7 +45,7 @@ public:
     * @param option Output file creation options
     * @param compression Output file compression level
     */
-   TBufferMergerLocal(const char *name, Option_t *option = "RECREATE", Int_t compress = 1);
+   TBufferMergerLocal(const char *name, Option_t *option = "RECREATE", Int_t compress = ROOT::RCompressionSetting::EDefaults::kUseGeneralPurpose);
 
    /** Constructor
     * @param output Output \c TFile
@@ -55,8 +55,8 @@ public:
    /** Destructor */
    virtual ~TBufferMergerLocal();
 
-   /** Returns a TBufferMergerFile to which data can be written.
-    *  At the end, all TBufferMergerFiles get merged into the output file.
+   /** Returns a TBufferMergerFileLocal to which data can be written.
+    *  At the end, all TBufferMergerFileLocals get merged into the output file.
     *  The user is responsible to "cd" into the file to associate objects
     *  such as histograms or trees to it.
     *
@@ -70,19 +70,12 @@ public:
    /** Returns the number of buffers currently in the queue. */
    size_t GetQueueSize() const;
 
-   /** Register a user callback function to be called after a buffer has been
-    *  removed from the merging queue and finished being processed. This
-    *  function can be useful to allow asynchronous launching of new tasks to
-    *  push more data into the queue once its size satisfies user requirements.
-    */
-   void RegisterCallback(const std::function<void(void)> &f);
-
    /** Returns the current value of the auto save setting in bytes (default = 0). */
    size_t GetAutoSave() const;
 
-   /** By default, TBufferMerger will call TFileMerger::PartialMerge() for each
+   /** By default, TBufferMergerLocal will call TFileMerger::PartialMerge() for each
     *  buffer pushed onto its merge queue. This function lets the user change
-    *  this behaviour by telling TBufferMerger to accumulate at least @param size
+    *  this behaviour by telling TBufferMergerLocal to accumulate at least @param size
     *  bytes in memory before performing a partial merge and flushing to disk.
     *  This can be useful to avoid an excessive amount of work to happen in the
     *  output thread, as the number of TTree headers (which require compression)
@@ -93,37 +86,36 @@ public:
    friend class TBufferMergerFileLocal;
 
 private:
-   /** TBufferMerger has no default constructor */
+   /** TBufferMergerLocal has no default constructor */
    TBufferMergerLocal();
 
-   /** TBufferMerger has no copy constructor */
+   /** TBufferMergerLocal has no copy constructor */
    TBufferMergerLocal(const TBufferMergerLocal &);
 
-   /** TBufferMerger has no copy operator */
+   /** TBufferMergerLocal has no copy operator */
    TBufferMergerLocal &operator=(const TBufferMergerLocal &);
 
-   void Init(TFile*);
+   void Init(std::unique_ptr<TFile>);
 
    void Merge();
    void Push(TBufferFile *buffer);
 
-   size_t fAutoSave{0};                                          // AutoSave only every fAutoSave bytes
-   size_t fBuffered{0};                                          // Number of bytes currently buffered
-   TFileMerger fMerger{false, false};                            // TFileMerger used to merge all buffers
-   std::mutex fMergeMutex;                                       // Mutex used to lock fMerger
-   std::mutex fQueueMutex;                                       // Mutex used to lock fQueue
-   std::queue<TBufferFile *> fQueue;                             // Queue to which data is pushed and merged
-   std::vector<std::weak_ptr<TBufferMergerFileLocal>> fAttachedFiles; // Attached files
-   std::function<void(void)> fCallback;                          // Callback for when data is removed from queue
+   size_t fAutoSave{0};                                          //< AutoSave only every fAutoSave bytes
+   size_t fBuffered{0};                                          //< Number of bytes currently buffered
+   TFileMerger fMerger{false, false};                            //< TFileMerger used to merge all buffers
+   std::mutex fMergeMutex;                                       //< Mutex used to lock fMerger
+   std::mutex fQueueMutex;                                       //< Mutex used to lock fQueue
+   std::queue<TBufferFile *> fQueue;                             //< Queue to which data is pushed and merged
+   std::vector<std::weak_ptr<TBufferMergerFileLocal>> fAttachedFiles; //< Attached files
 };
 
 /**
- * \class TBufferMerger TBufferMerger.hxx
+ * \class TBufferMergerLocal TBufferMergerLocal.hxx
  * \ingroup IO
  *
- * A TBufferMergerFile is similar to a TMemFile, but when data
- * is written to it, it is appended to the TBufferMerger queue.
- * The TBufferMerger merges all data into the output file on disk.
+ * A TBufferMergerFileLocal is similar to a TMemFile, but when data
+ * is written to it, it is appended to the TBufferMergerLocal queue.
+ * The TBufferMergerLocal merges all data into the output file on disk.
  */
 
 class TBufferMergerFileLocal : public TMemFile {
