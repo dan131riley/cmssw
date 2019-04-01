@@ -25,7 +25,7 @@ namespace Experimental {
 TBufferMergerLocal::TBufferMergerLocal(const char *name, Option_t *option, Int_t compress)
 {
    // We cannot chain constructors or use in-place initialization here because
-   // instantiating a TBufferMergerLocal should not alter gDirectory's state.
+   // instantiating a TBufferMerger should not alter gDirectory's state.
    TDirectory::TContext ctxt;
    Init(std::unique_ptr<TFile>(TFile::Open(name, option, /* title */ name, compress)));
 }
@@ -46,16 +46,16 @@ void TBufferMergerLocal::Init(std::unique_ptr<TFile> output)
 TBufferMergerLocal::~TBufferMergerLocal()
 {
    for (const auto &f : fAttachedFiles)
-      if (!f.expired()) Fatal("TBufferMergerLocal", " TBufferMergerFileLocals must be destroyed before the server");
+      if (!f.expired()) Fatal("TBufferMergerLocal", " TBufferMergerFiles must be destroyed before the server");
 
    if (!fQueue.empty())
       Merge();
 }
 
-std::shared_ptr<TBufferMergerFileLocal> TBufferMergerLocal::GetFile()
+std::shared_ptr<TBufferMergerLocalFile> TBufferMergerLocal::GetFile()
 {
    R__LOCKGUARD(gROOTMutex);
-   std::shared_ptr<TBufferMergerFileLocal> f(new TBufferMergerFileLocal(*this));
+   std::shared_ptr<TBufferMergerLocalFile> f(new TBufferMergerLocalFile(*this));
    gROOT->GetListOfFiles()->Remove(f.get());
    fAttachedFiles.push_back(f);
    return f;
@@ -83,9 +83,20 @@ size_t TBufferMergerLocal::GetAutoSave() const
    return fAutoSave;
 }
 
+const char *TBufferMergerLocal::GetMergeOptions()
+{
+   return fMerger.GetMergeOptions();
+}
+
+
 void TBufferMergerLocal::SetAutoSave(size_t size)
 {
    fAutoSave = size;
+}
+
+void TBufferMergerLocal::SetMergeOptions(const TString& options)
+{
+   fMerger.SetMergeOptions(options);
 }
 
 void TBufferMergerLocal::Merge()
@@ -100,16 +111,15 @@ void TBufferMergerLocal::Merge()
 
       while (!queue.empty()) {
          std::unique_ptr<TBufferFile> buffer{queue.front()};
-         fMerger.AddAdoptFile(
-            new TMemFile(fMerger.GetOutputFileName(), buffer->Buffer(), buffer->BufferSize(), "READ"));
+         fMerger.AddAdoptFile(new TMemFile(fMerger.GetOutputFileName(), std::move(buffer)));
          queue.pop();
       }
 
-      fMerger.PartialMerge(TFileMerger::kAll | TFileMerger::kIncremental | TFileMerger::kKeepCompression);
+      fMerger.PartialMerge();
       fMerger.Reset();
       fMergeMutex.unlock();
    } else {
-      std::cout << "TBufferMergerLocal::Merge failed to acquire lock\n";
+    std::cout << "TBufferMergerLocal::Merge failed to acquire lock\n";
    }
 }
 

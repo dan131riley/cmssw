@@ -9,8 +9,8 @@
  * For the list of contributors see $ROOTSYS/README/CREDITS.             *
  *************************************************************************/
 
-#ifndef ROOT_TBufferMerger_Local
-#define ROOT_TBufferMerger_Local
+#ifndef ROOT_TBufferMergerLocal
+#define ROOT_TBufferMergerLocal
 
 #include "TFileMerger.h"
 #include "TMemFile.h"
@@ -23,19 +23,19 @@
 namespace ROOT {
 namespace Experimental {
 
-class TBufferMergerFileLocal;
+class TBufferMergerLocalFile;
 
 /**
- * \class TBufferMergerLocal TBufferMergerLocal.hxx
+ * \class TBufferMerger TBufferMerger.hxx
  * \ingroup IO
  *
- * TBufferMergerLocal is a class to facilitate writing data in
+ * TBufferMerger is a class to facilitate writing data in
  * parallel from multiple threads, while writing to a single
  * output file. Its purpose is similar to TParallelMergingFile,
  * but instead of using processes that connect to a network
- * socket, TBufferMergerLocal uses threads that each write to a
- * TBufferMergerFileLocal, which in turn push data into a queue
- * managed by the TBufferMergerLocal.
+ * socket, TBufferMerger uses threads that each write to a
+ * TBufferMergerFile, which in turn push data into a queue
+ * managed by the TBufferMerger.
  */
 
 class TBufferMergerLocal {
@@ -55,8 +55,8 @@ public:
    /** Destructor */
    virtual ~TBufferMergerLocal();
 
-   /** Returns a TBufferMergerFileLocal to which data can be written.
-    *  At the end, all TBufferMergerFileLocals get merged into the output file.
+   /** Returns a TBufferMergerFile to which data can be written.
+    *  At the end, all TBufferMergerFiles get merged into the output file.
     *  The user is responsible to "cd" into the file to associate objects
     *  such as histograms or trees to it.
     *
@@ -65,7 +65,7 @@ public:
     *  there is a possibility that a race condition will happen that causes
     *  a crash if ROOT manages these objects.
     */
-   std::shared_ptr<TBufferMergerFileLocal> GetFile();
+   std::shared_ptr<TBufferMergerLocalFile> GetFile();
 
    /** Returns the number of buffers currently in the queue. */
    size_t GetQueueSize() const;
@@ -73,9 +73,12 @@ public:
    /** Returns the current value of the auto save setting in bytes (default = 0). */
    size_t GetAutoSave() const;
 
-   /** By default, TBufferMergerLocal will call TFileMerger::PartialMerge() for each
+   /** Returns the current merge options. */
+   const char* GetMergeOptions();
+
+   /** By default, TBufferMerger will call TFileMerger::PartialMerge() for each
     *  buffer pushed onto its merge queue. This function lets the user change
-    *  this behaviour by telling TBufferMergerLocal to accumulate at least @param size
+    *  this behaviour by telling TBufferMerger to accumulate at least size
     *  bytes in memory before performing a partial merge and flushing to disk.
     *  This can be useful to avoid an excessive amount of work to happen in the
     *  output thread, as the number of TTree headers (which require compression)
@@ -83,16 +86,23 @@ public:
     */
    void SetAutoSave(size_t size);
 
-   friend class TBufferMergerFileLocal;
+   /** Sets the merge options. SetMergeOptions("fast") will disable
+    * recompression of input data into the output if they have different
+    * compression settings.
+    * @param options TFileMerger/TFileMergeInfo merge options
+    */
+   void SetMergeOptions(const TString& options);
+
+   friend class TBufferMergerLocalFile;
 
 private:
-   /** TBufferMergerLocal has no default constructor */
+   /** TBufferMerger has no default constructor */
    TBufferMergerLocal();
 
-   /** TBufferMergerLocal has no copy constructor */
+   /** TBufferMerger has no copy constructor */
    TBufferMergerLocal(const TBufferMergerLocal &);
 
-   /** TBufferMergerLocal has no copy operator */
+   /** TBufferMerger has no copy operator */
    TBufferMergerLocal &operator=(const TBufferMergerLocal &);
 
    void Init(std::unique_ptr<TFile>);
@@ -106,53 +116,53 @@ private:
    std::mutex fMergeMutex;                                       //< Mutex used to lock fMerger
    std::mutex fQueueMutex;                                       //< Mutex used to lock fQueue
    std::queue<TBufferFile *> fQueue;                             //< Queue to which data is pushed and merged
-   std::vector<std::weak_ptr<TBufferMergerFileLocal>> fAttachedFiles; //< Attached files
+   std::vector<std::weak_ptr<TBufferMergerLocalFile>> fAttachedFiles; //< Attached files
 };
 
 /**
- * \class TBufferMergerLocal TBufferMergerLocal.hxx
+ * \class TBufferMerger TBufferMerger.hxx
  * \ingroup IO
  *
- * A TBufferMergerFileLocal is similar to a TMemFile, but when data
- * is written to it, it is appended to the TBufferMergerLocal queue.
- * The TBufferMergerLocal merges all data into the output file on disk.
+ * A TBufferMergerFile is similar to a TMemFile, but when data
+ * is written to it, it is appended to the TBufferMerger queue.
+ * The TBufferMerger merges all data into the output file on disk.
  */
 
-class TBufferMergerFileLocal : public TMemFile {
+class TBufferMergerLocalFile : public TMemFile {
 private:
-   TBufferMergerLocal &fMerger; //< TBufferMergerLocal this file is attached to
+   TBufferMergerLocal &fMerger; //< TBufferMerger this file is attached to
 
-   /** Constructor. Can only be called by TBufferMergerLocal.
+   /** Constructor. Can only be called by TBufferMerger.
     * @param m Merger this file is attached to. */
-   TBufferMergerFileLocal(TBufferMergerLocal &m);
+   TBufferMergerLocalFile(TBufferMergerLocal &m);
 
-   /** TBufferMergerFileLocal has no default constructor. */
-   TBufferMergerFileLocal();
+   /** TBufferMergerFile has no default constructor. */
+   TBufferMergerLocalFile();
 
-   /** TBufferMergerFileLocal has no copy constructor. */
-   TBufferMergerFileLocal(const TBufferMergerFileLocal &);
+   /** TBufferMergerFile has no copy constructor. */
+   TBufferMergerLocalFile(const TBufferMergerLocalFile &);
 
-   /** TBufferMergerFileLocal has no copy operator */
-   TBufferMergerFileLocal &operator=(const TBufferMergerFileLocal &);
+   /** TBufferMergerFile has no copy operator */
+   TBufferMergerLocalFile &operator=(const TBufferMergerLocalFile &);
 
    friend class TBufferMergerLocal;
 
 public:
    /** Destructor */
-   ~TBufferMergerFileLocal();
+   ~TBufferMergerLocalFile();
 
    using TMemFile::Write;
 
-   /** Write data into a TBufferFile and append it to TBufferMergerLocal.
+   /** Write data into a TBufferFile and append it to TBufferMerger.
     * @param name Name
     * @param opt  Options
     * @param bufsize Buffer size
-    * This function must be called before the TBufferMergerFileLocal gets destroyed,
-    * or no data is appended to the TBufferMergerLocal.
+    * This function must be called before the TBufferMergerFile gets destroyed,
+    * or no data is appended to the TBufferMerger.
     */
    virtual Int_t Write(const char *name = nullptr, Int_t opt = 0, Int_t bufsize = 0) override;
 
-   //ClassDefOverride(TBufferMergerFileLocal, 0);
+   //ClassDefOverride(TBufferMergerLocalFile, 0);
 };
 
 } // namespace Experimental
