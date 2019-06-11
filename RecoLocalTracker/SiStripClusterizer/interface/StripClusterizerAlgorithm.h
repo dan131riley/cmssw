@@ -44,13 +44,18 @@ public:
   struct State {
     State(Det const& idet) : m_det(idet) { ADCs.reserve(128); }
     Det const& det() const { return m_det; }
+    void reset(Det const& idet) {
+      m_det = idet;
+      ADCs.clear();
+      lastStrip = 0; noiseSquared = 0; candidateLacksSeed = true;
+    }
     std::vector<uint8_t> ADCs;
     uint16_t lastStrip = 0;
     float noiseSquared = 0;
     bool candidateLacksSeed = true;
 
   private:
-    Det const& m_det;
+    std::reference_wrapper<const Det> m_det;
   };
 
   virtual ~StripClusterizerAlgorithm() {}
