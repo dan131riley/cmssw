@@ -38,14 +38,20 @@ class StripClusterizerAlgorithm {
   
   //state of the candidate cluster
   struct State {
-    State(Det const & idet) : m_det(idet) { ADCs.reserve(128);}
-    Det const & det() const { return m_det;}
+    State(Det const & idet) : mp_det(&idet) { ADCs.reserve(128);}
+    State() : mp_det(nullptr) { ADCs.reserve(128); }
+    Det const& det() const { return *mp_det; }
+    void reset(Det const& idet) {
+      mp_det = &idet;
+      ADCs.clear();
+      lastStrip = 0; noiseSquared = 0; candidateLacksSeed = true;
+    }
     std::vector<uint8_t> ADCs;  
     uint16_t lastStrip=0;
     float noiseSquared=0;
     bool candidateLacksSeed=true;
   private:
-    Det const & m_det;
+    Det const * mp_det;
   };
   
   

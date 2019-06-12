@@ -125,13 +125,11 @@ namespace {
     ~ClusterFiller() override { printStat();}
     
     void fill(StripClusterizerAlgorithm::output_t::TSFastFiller & record) override;
+    void fillImpl(StripClusterizerAlgorithm::output_t::TSFastFiller & record, StripClusterizerAlgorithm::State& state);
     
   private:
-    
-    
     std::unique_ptr<sistrip::FEDBuffer> buffers[1024];
     std::atomic<sistrip::FEDBuffer*> done[1024];
-    
     
     const FEDRawDataCollection& rawColl;
     
@@ -291,15 +289,17 @@ void SiStripClusterizerFromRaw::initialize(const edm::EventSetup& es) {
 
 void SiStripClusterizerFromRaw::run(const FEDRawDataCollection& rawColl,
 				     edmNew::DetSetVector<SiStripCluster> & output) {
-  
+
   ClusterFiller filler(rawColl, *clusterizer_, *rawAlgos_, doAPVEmulatorCheck_, legacy_, hybridZeroSuppressed_);
+
+  StripClusterizerAlgorithm::State state;
   
   // loop over good det in cabling
   for ( auto idet : clusterizer_->allDetIds()) {
 
     StripClusterizerAlgorithm::output_t::TSFastFiller record(output, idet);	
     
-    filler.fill(record);
+    filler.fillImpl(record, state);
     
     if(record.empty()) record.abort();
 
@@ -392,6 +392,11 @@ namespace {
 }
 
 void ClusterFiller::fill(StripClusterizerAlgorithm::output_t::TSFastFiller & record) {
+  StripClusterizerAlgorithm::State state;
+  fillImpl(record, state);
+}
+
+void ClusterFiller::fillImpl(StripClusterizerAlgorithm::output_t::TSFastFiller & record, StripClusterizerAlgorithm::State& state) {
 try { // edmNew::CapacityExaustedException
   incReady();
 
@@ -401,7 +406,7 @@ try { // edmNew::CapacityExaustedException
 
   auto const & det = clusterizer.stripByStripBegin(idet);
   if (!det.valid()) return; 
-  StripClusterizerAlgorithm::State state(det);
+  state.reset(det);
 
   incSet();
 
