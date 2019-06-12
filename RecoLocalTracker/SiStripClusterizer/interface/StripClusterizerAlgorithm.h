@@ -42,10 +42,11 @@ public:
 
   //state of the candidate cluster
   struct State {
-    State(Det const& idet) : m_det(idet) { ADCs.reserve(128); }
-    Det const& det() const { return m_det; }
+    State(Det const& idet) : mp_det(&idet) { ADCs.reserve(128); }
+    State() : mp_det(nullptr) { ADCs.reserve(128); }
+    Det const& det() const { return *mp_det; }
     void reset(Det const& idet) {
-      m_det = idet;
+      mp_det = &idet;
       ADCs.clear();
       lastStrip = 0; noiseSquared = 0; candidateLacksSeed = true;
     }
@@ -55,7 +56,7 @@ public:
     bool candidateLacksSeed = true;
 
   private:
-    std::reference_wrapper<const Det> m_det;
+    Det const* mp_det;
   };
 
   virtual ~StripClusterizerAlgorithm() {}

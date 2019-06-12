@@ -114,11 +114,11 @@ namespace {
     ~ClusterFiller() override { printStat(); }
 
     void fill(StripClusterizerAlgorithm::output_t::TSFastFiller& record) override;
+    void fillImpl(StripClusterizerAlgorithm::output_t::TSFastFiller& record, StripClusterizerAlgorithm::State& state);
 
   private:
     std::unique_ptr<sistrip::FEDBuffer> buffers[1024];
     std::atomic<sistrip::FEDBuffer*> done[1024];
-    std::unique_ptr<StripClusterizerAlgorithm::State> state;
 
     const FEDRawDataCollection& rawColl;
 
@@ -252,11 +252,13 @@ void SiStripClusterizerFromRaw::initialize(const edm::EventSetup& es) {
 void SiStripClusterizerFromRaw::run(const FEDRawDataCollection& rawColl, edmNew::DetSetVector<SiStripCluster>& output) {
   ClusterFiller filler(rawColl, *clusterizer_, *rawAlgos_, doAPVEmulatorCheck_, legacy_, hybridZeroSuppressed_);
 
+  StripClusterizerAlgorithm::State state;
+
   // loop over good det in cabling
   for (auto idet : clusterizer_->allDetIds()) {
     StripClusterizerAlgorithm::output_t::TSFastFiller record(output, idet);
 
-    filler.fill(record);
+    filler.fillImpl(record, state);
 
     if (record.empty())
       record.abort();
@@ -372,6 +374,11 @@ namespace {
 }  // namespace
 
 void ClusterFiller::fill(StripClusterizerAlgorithm::output_t::TSFastFiller& record) {
+  StripClusterizerAlgorithm::State state;
+  fillImpl(record, state);
+}
+
+void ClusterFiller::fillImpl(StripClusterizerAlgorithm::output_t::TSFastFiller& record, StripClusterizerAlgorithm::State& state) {
   try {  // edmNew::CapacityExaustedException
     incReady();
 
@@ -383,11 +390,7 @@ void ClusterFiller::fill(StripClusterizerAlgorithm::output_t::TSFastFiller& reco
     if (!det.valid())
       return;
 
-    if (nullptr == state) {
-      state = std::make_unique<StripClusterizerAlgorithm::State>(det);
-    } else{
-      state->reset(det);
-    }
+    state.reset(det);
 
     incSet();
 
@@ -446,7 +449,7 @@ void ClusterFiller::fill(StripClusterizerAlgorithm::output_t::TSFastFiller& reco
                (mode != sistrip::READOUT_MODE_PROC_RAW)) {
           // ZS modes
           try {
-            auto perStripAdder = StripByStripAdder(clusterizer, *state, record);
+            auto perStripAdder = StripByStripAdder(clusterizer, state, record);
             if
               LIKELY(!hybridZeroSuppressed_) { unpackZS(buffer->channel(fedCh), mode, ipair * 256, perStripAdder); }
             else {
@@ -473,12 +476,12 @@ void ClusterFiller::fill(StripClusterizerAlgorithm::output_t::TSFastFiller& reco
       else if (legacy_ && (lmode == sistrip::READOUT_MODE_LEGACY_ZERO_SUPPRESSED_REAL ||
                            lmode == sistrip::READOUT_MODE_LEGACY_ZERO_SUPPRESSED_FAKE)) {
         auto unpacker = sistrip::FEDZSChannelUnpacker::zeroSuppressedModeUnpacker(buffer->channel(fedCh));
-        clusterizer.addFed(*state, unpacker, ipair, record);
+        clusterizer.addFed(state, unpacker, ipair, record);
       } else if (legacy_ && (lmode == sistrip::READOUT_MODE_LEGACY_ZERO_SUPPRESSED_LITE_REAL ||
                              lmode == sistrip::READOUT_MODE_LEGACY_ZERO_SUPPRESSED_LITE_FAKE)) {
         auto unpacker = sistrip::FEDZSChannelUnpacker::zeroSuppressedLiteModeUnpacker(buffer->channel(fedCh));
         while (unpacker.hasData()) {
-          clusterizer.stripByStripAdd(*state, ipair * 256 + unpacker.sampleNumber(), unpacker.adc(), record);
+          clusterizer.stripByStripAdd(state, ipair * 256 + unpacker.sampleNumber(), unpacker.adc(), record);
           unpacker++;
         }
       } else if (!legacy_ ? (mode == sistrip::READOUT_MODE_VIRGIN_RAW)
@@ -535,7 +538,7 @@ void ClusterFiller::fill(StripClusterizerAlgorithm::output_t::TSFastFiller& reco
         uint16_t firstAPV = ipair * 2;
         rawAlgos.suppressVirginRawData(id, firstAPV, digis, zsdigis);
         for (const auto digi : zsdigis) {
-          clusterizer.stripByStripAdd(*state, digi.strip(), digi.adc(), record);
+          clusterizer.stripByStripAdd(state, digi.strip(), digi.adc(), record);
         }
 
       } else if (!legacy_ ? (mode == sistrip::READOUT_MODE_PROC_RAW)
@@ -560,7 +563,7 @@ void ClusterFiller::fill(StripClusterizerAlgorithm::output_t::TSFastFiller& reco
         uint16_t firstAPV = ipair * 2;
         rawAlgos.suppressProcessedRawData(id, firstAPV, digis, zsdigis);
         for (edm::DetSet<SiStripDigi>::const_iterator it = zsdigis.begin(); it != zsdigis.end(); it++) {
-          clusterizer.stripByStripAdd(*state, it->strip(), it->adc(), record);
+          clusterizer.stripByStripAdd(state, it->strip(), it->adc(), record);
         }
       } else {
         edm::LogWarning(sistrip::mlRawToCluster_)
@@ -570,7 +573,7 @@ void ClusterFiller::fill(StripClusterizerAlgorithm::output_t::TSFastFiller& reco
       }
     }  // end loop over conn
 
-    clusterizer.stripByStripEnd(*state, record);
+    clusterizer.stripByStripEnd(state, record);
 
     incAct();
 
