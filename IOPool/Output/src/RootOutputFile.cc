@@ -67,7 +67,7 @@ namespace edm {
                                                : lh->processName() < rh->processName() ? true : false;
     }
 
-    std::shared_ptr<TFile>     openTFile(char const* name, int compressionLevel) {
+    std::shared_ptr<TFile> openTFile(char const* name, int compressionLevel) {
       std::shared_ptr<TFile> file(TFile::Open(name, "recreate", "", compressionLevel));
       std::exception_ptr e = edm::threadLocalException::getException();
       if (e != std::exception_ptr()) {
@@ -153,7 +153,7 @@ namespace edm {
 
     for (int i = InEvent; i < NumBranchTypes; ++i) {
       BranchType branchType = static_cast<BranchType>(i);
-      RootOutputTree *theTree = treePointers_[branchType];
+      RootOutputTree* theTree = treePointers_[branchType];
       auto const& items = om_->selectedOutputItemList()[branchType];
       auto& products = selectedOutputProductList_[branchType];
       products.resize(items.size());
@@ -438,7 +438,9 @@ namespace edm {
     pEventSelectionIDs_ = &esids;
     ProductProvenanceRetriever const* provRetriever = e.productProvenanceRetrieverPtr();
     assert(provRetriever);
-    if (fillEvent) { fillBranches(InEvent, e, pEventEntryInfoVector_, provRetriever); }
+    if (fillEvent) {
+      fillBranches(InEvent, e, pEventEntryInfoVector_, provRetriever);
+    }
 
     // Add the dataType to the job report if it hasn't already been done
     if (!dataTypeReported_) {
@@ -639,8 +641,8 @@ namespace edm {
     auto flushsize = ttree->GetAutoFlush();
     auto entries = ttree->GetEntries();
     if ((forceWrite && entries > 0) || (flushsize > 0 && entries >= flushsize)) {
-      LogSystem("RootOutputFile::writeEvents") << "Writing events " << (forceWrite ? "forced" : "flush")
-        << ", entries " << entries << " flushsize " << flushsize;
+      LogSystem("RootOutputFile::writeEvents") << "Writing events " << (forceWrite ? "forced" : "flush") << ", entries "
+                                               << entries << " flushsize " << flushsize;
       if (writeEvents) {
         filePtr_->Write();
       } else {
@@ -664,7 +666,8 @@ namespace edm {
       setBranchAliases(treePointers_[branchType]->tree(), om_->OMkeptProducts()[branchType]);
       treePointers_[branchType]->writeTree();
     }
-    if (forceWrite) filePtr_->Write();
+    if (forceWrite)
+      filePtr_->Write();
 
     // close the file -- mfp
     // Just to play it safe, zero all pointers to objects in the TFile to be closed.
@@ -738,7 +741,7 @@ namespace edm {
   }
 
   void RootOutputFile::fillSelectedProductList() {
-    for(int i = InEvent; i < NumBranchTypes; ++i) {
+    for (int i = InEvent; i < NumBranchTypes; ++i) {
       BranchType branchType = static_cast<BranchType>(i);
       auto const& items = om_->selectedOutputItemList()[branchType];
       selectedOutputProductList_[branchType].resize(items.size());
@@ -749,7 +752,6 @@ namespace edm {
                                     OccurrenceForOutput const& occurrence,
                                     StoredProductProvenanceVector* productProvenanceVecPtr,
                                     ProductProvenanceRetriever const* provRetriever) {
-
     OutputItemList const& items = om_->selectedOutputItemList()[branchType];
 
     bool const doProvenance =

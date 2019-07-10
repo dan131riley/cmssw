@@ -23,15 +23,9 @@ class TTree;
 namespace ROOT {
   namespace Experimental {
     class TBufferMerger;
-    class TBufferMergerLocal;
   }
 }
-#define USE_TBUFFERMERGER
-#ifdef USE_TBUFFERMERGER
 using MergerType = ROOT::Experimental::TBufferMerger;
-#else
-using MergerType = ROOT::Experimental::TBufferMergerLocal;
-#endif
 
 namespace edm {
 
@@ -39,8 +33,8 @@ namespace edm {
   public:
     explicit ParallelPoolOutputModule(ParameterSet const& ps);
     ~ParallelPoolOutputModule() override;
-    ParallelPoolOutputModule(ParallelPoolOutputModule const&) = delete; // Disallow copying and moving
-    ParallelPoolOutputModule& operator=(ParallelPoolOutputModule const&) = delete; // Disallow copying and moving
+    ParallelPoolOutputModule(ParallelPoolOutputModule const&) = delete;             // Disallow copying and moving
+    ParallelPoolOutputModule& operator=(ParallelPoolOutputModule const&) = delete;  // Disallow copying and moving
 
     std::string const& currentFileName() const;
 
@@ -63,7 +57,9 @@ namespace edm {
     void setProcessesWithSelectedMergeableRunProducts(std::set<std::string> const&) override;
 
   private:
-    void preActionBeforeRunEventAsync(WaitingTask* iTask, ModuleCallingContext const& iModuleCallingContext, Principal const& iPrincipal) const override;
+    void preActionBeforeRunEventAsync(WaitingTask* iTask,
+                                      ModuleCallingContext const& iModuleCallingContext,
+                                      Principal const& iPrincipal) const override;
 
     void openFile(FileBlock const& fb) override;
     void respondToOpenInputFile(FileBlock const& fb) override;
@@ -95,10 +91,9 @@ namespace edm {
     bool writeEvents_;
     bool fillEvents_;
     std::string moduleLabel_;
-    std::vector<unsigned int> queueSizeHistogram_; // NOTE: not atomic, may not be accurate
+    std::vector<unsigned int> queueSizeHistogram_;  // NOTE: not atomic, may not be accurate
     std::mutex notYetThreadSafe_;
   };
-}
+}  // namespace edm
 
 #endif
-

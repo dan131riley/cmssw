@@ -28,12 +28,7 @@
 #include "TObjArray.h"
 #include "RVersion.h"
 #include "Compression.h"
-
-#ifdef USE_TBUFFERMERGER
 #include "ROOT/TBufferMerger.hxx"
-#else
-#include "TBufferMergerLocal.hxx"
-#endif
 
 #include <fstream>
 #include <iomanip>
@@ -42,19 +37,19 @@
 #include "boost/algorithm/string.hpp"
 
 namespace edm {
-  ParallelPoolOutputModule::ParallelPoolOutputModule(ParameterSet const& pset) :
-    edm::limited::OutputModuleBase::OutputModuleBase(pset),
-    limited::OutputModule<WatchInputFiles>(pset),
-    PoolOutputModuleBase(pset, wantAllEvents()),
-    rootOutputFile_(),
-    eventOutputFiles_(),
-    eventAutoSaveSize_(pset.getUntrackedParameter<int>("eventAutoSaveSize")),
-    concurrency_(pset.getUntrackedParameter<unsigned int>("concurrencyLimit")),
-    writeEvents_(pset.getUntrackedParameter<bool>("writeEvents")),
-    fillEvents_(pset.getUntrackedParameter<bool>("fillEvents")),
-    moduleLabel_(pset.getParameter<std::string>("@module_label")) {
-      queueSizeHistogram_.resize(concurrency_);
-    }
+  ParallelPoolOutputModule::ParallelPoolOutputModule(ParameterSet const& pset)
+      : edm::limited::OutputModuleBase::OutputModuleBase(pset),
+        limited::OutputModule<WatchInputFiles>(pset),
+        PoolOutputModuleBase(pset, wantAllEvents()),
+        rootOutputFile_(),
+        eventOutputFiles_(),
+        eventAutoSaveSize_(pset.getUntrackedParameter<int>("eventAutoSaveSize")),
+        concurrency_(pset.getUntrackedParameter<unsigned int>("concurrencyLimit")),
+        writeEvents_(pset.getUntrackedParameter<bool>("writeEvents")),
+        fillEvents_(pset.getUntrackedParameter<bool>("fillEvents")),
+        moduleLabel_(pset.getParameter<std::string>("@module_label")) {
+    queueSizeHistogram_.resize(concurrency_);
+  }
 
   ParallelPoolOutputModule::~ParallelPoolOutputModule() {
     // NOTE: bad idea?
@@ -72,25 +67,23 @@ namespace edm {
     setProcessesWithSelectedMergeableRunProductsBase(processes);
   }
 
-  void ParallelPoolOutputModule::beginJob() {
-    beginJobBase();
-  }
+  void ParallelPoolOutputModule::beginJob() { beginJobBase(); }
 
   bool ParallelPoolOutputModule::OMwantAllEvents() const { return wantAllEvents(); }
   BranchIDLists const* ParallelPoolOutputModule::OMbranchIDLists() {
     // only called via reallyCloseFile()
     return branchIDLists();
   }
-  ThinnedAssociationsHelper const* ParallelPoolOutputModule::OMthinnedAssociationsHelper() const { return thinnedAssociationsHelper(); }
+  ThinnedAssociationsHelper const* ParallelPoolOutputModule::OMthinnedAssociationsHelper() const {
+    return thinnedAssociationsHelper();
+  }
   ParameterSetID ParallelPoolOutputModule::OMselectorConfig() const { return selectorConfig(); }
   SelectedProductsForBranchType const& ParallelPoolOutputModule::OMkeptProducts() const { return keptProducts(); }
 
-  std::string const& ParallelPoolOutputModule::currentFileName() const {
-    return rootOutputFile_->fileName();
-  }
+  std::string const& ParallelPoolOutputModule::currentFileName() const { return rootOutputFile_->fileName(); }
 
   void ParallelPoolOutputModule::beginInputFile(FileBlock const& fb) {
-    if(isFileOpen()) {
+    if (isFileOpen()) {
       beginInputFileBase(fb);
       rootOutputFile_->beginInputFile(fb, remainingEvents());
     }
@@ -98,7 +91,7 @@ namespace edm {
 
   //NOTE: assumed serialized by framework
   void ParallelPoolOutputModule::openFile(FileBlock const& fb) {
-    if(!isFileOpen()) {
+    if (!isFileOpen()) {
       reallyOpenFile();
       beginInputFile(fb);
     }
@@ -109,12 +102,14 @@ namespace edm {
     auto init = initializedFromInput();
     respondToOpenInputFileBase(fb, keptProducts());
     beginInputFile(fb);
-    if (isFileOpen() && !init) rootOutputFile_->fillSelectedProductList();
+    if (isFileOpen() && !init)
+      rootOutputFile_->fillSelectedProductList();
   }
 
   //NOTE: assumed serialized by framework
   void ParallelPoolOutputModule::respondToCloseInputFile(FileBlock const& fb) {
-    if (rootOutputFile_) rootOutputFile_->respondToCloseInputFile(fb);
+    if (rootOutputFile_)
+      rootOutputFile_->respondToCloseInputFile(fb);
   }
 
   void ParallelPoolOutputModule::write(EventForOutput const& e) {
@@ -140,7 +135,7 @@ namespace edm {
     }
 
     if (!statusFileName().empty()) {
-      std::lock_guard<std::mutex> lock{notYetThreadSafe_}; // NOTE: urrrggggghhhhh...
+      std::lock_guard<std::mutex> lock{notYetThreadSafe_};  // NOTE: urrrggggghhhhh...
       std::ofstream statusFile(statusFileName().c_str());
       statusFile << e.id() << " time: " << std::setprecision(3) << TimeOfDay() << '\n';
       statusFile.close();
@@ -187,45 +182,50 @@ namespace edm {
     } else if (compressionAlgorithm() == std::string("LZMA")) {
       alg = ROOT::kLZMA;
     } else {
-      throw Exception(errors::Configuration) << "PoolOutputModuleBase configured with unknown compression algorithm '" << compressionAlgorithm() << "'\n"
-					     << "Allowed compression algorithms are ZLIB and LZMA\n";
+      throw Exception(errors::Configuration)
+          << "PoolOutputModuleBase configured with unknown compression algorithm '" << compressionAlgorithm() << "'\n"
+          << "Allowed compression algorithms are ZLIB and LZMA\n";
     }
-    alg = ROOT::kZLIB; // TMP
+    alg = ROOT::kZLIB;  // TMP
     auto compress = ROOT::CompressionSettings(alg, compressionLevel());
     mergePtr_ = std::make_shared<MergerType>(names.first.c_str(), "recreate", compress);
     mergePtr_->SetAutoSave(eventAutoSaveSize_);
     mergePtr_->SetMergeOptions("fast");
-    rootOutputFile_ = std::make_unique<RootOutputFile>(this, names.first, names.second,
-                                                       processesWithSelectedMergeableRunProducts(), mergePtr_->GetFile());
+    rootOutputFile_ = std::make_unique<RootOutputFile>(
+        this, names.first, names.second, processesWithSelectedMergeableRunProducts(), mergePtr_->GetFile());
 
     // pre-allocate output buffers
     for (auto i = 0U; i < concurrency_; ++i) {
       EventFileRec outputFileRec;
-      outputFileRec.eventFile_ = std::make_unique<RootOutputFile>(this, names.first, names.second,
-                                                                  processesWithSelectedMergeableRunProducts(), mergePtr_->GetFile());
+      outputFileRec.eventFile_ = std::make_unique<RootOutputFile>(
+          this, names.first, names.second, processesWithSelectedMergeableRunProducts(), mergePtr_->GetFile());
       eventOutputFiles_.push(std::move(outputFileRec));
     }
   }
 
   //NOTE: assumed serialized by framework
-  void
-  ParallelPoolOutputModule::preActionBeforeRunEventAsync(WaitingTask* iTask, ModuleCallingContext const& iModuleCallingContext, Principal const& iPrincipal) const {
+  void ParallelPoolOutputModule::preActionBeforeRunEventAsync(WaitingTask* iTask,
+                                                              ModuleCallingContext const& iModuleCallingContext,
+                                                              Principal const& iPrincipal) const {
     preActionBeforeRunEventAsyncBase(iTask, iModuleCallingContext, iPrincipal);
   }
 
-  void
-  ParallelPoolOutputModule::fillDescription(ParameterSetDescription& desc) {
-    desc.addUntracked<int>("eventAutoSaveSize",0)->setComment("Sets the ROOT TBufferMerger auto save size (in bytes) for the event TTree. The value sets how large the TBufferMerger queue must get before the queue is merged to the output file.  Large values reduce the overhead writing TTree AutoSave headers but also increase buffer memory use.");
-    desc.addUntracked<bool>("writeEvents",true)->setComment("Write events to the output file (true) or discard (false)");
-    desc.addUntracked<bool>("fillEvents",true)->setComment("Fill events to the output tree (true) or discard (false)");
+  void ParallelPoolOutputModule::fillDescription(ParameterSetDescription& desc) {
+    desc.addUntracked<int>("eventAutoSaveSize", 0)
+        ->setComment(
+            "Sets the ROOT TBufferMerger auto save size (in bytes) for the event TTree. The value sets how large the "
+            "TBufferMerger queue must get before the queue is merged to the output file.  Large values reduce the "
+            "overhead writing TTree AutoSave headers but also increase buffer memory use.");
+    desc.addUntracked<bool>("writeEvents", true)
+        ->setComment("Write events to the output file (true) or discard (false)");
+    desc.addUntracked<bool>("fillEvents", true)->setComment("Fill events to the output tree (true) or discard (false)");
     PoolOutputModuleBase::fillDescription(desc);
     OutputModule::fillDescription(desc);
   }
 
-  void
-  ParallelPoolOutputModule::fillDescriptions(ConfigurationDescriptions & descriptions) {
+  void ParallelPoolOutputModule::fillDescriptions(ConfigurationDescriptions& descriptions) {
     ParameterSetDescription desc;
     ParallelPoolOutputModule::fillDescription(desc);
     descriptions.add("edmParallelOutput", desc);
   }
-}
+}  // namespace edm

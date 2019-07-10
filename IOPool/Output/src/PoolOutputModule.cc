@@ -33,29 +33,26 @@
 #include "boost/algorithm/string.hpp"
 
 namespace edm {
-  PoolOutputModule::PoolOutputModule(ParameterSet const& pset) :
-    edm::one::OutputModuleBase::OutputModuleBase(pset),
-    one::OutputModule<WatchInputFiles>(pset),
-    PoolOutputModuleBase(pset, wantAllEvents()),
-    rootOutputFile_() {
-  }
+  PoolOutputModule::PoolOutputModule(ParameterSet const& pset)
+      : edm::one::OutputModuleBase::OutputModuleBase(pset),
+        one::OutputModule<WatchInputFiles>(pset),
+        PoolOutputModuleBase(pset, wantAllEvents()),
+        rootOutputFile_() {}
 
-  void PoolOutputModule::beginJob() {
-    beginJobBase();
-  }
+  void PoolOutputModule::beginJob() { beginJobBase(); }
 
   bool PoolOutputModule::OMwantAllEvents() const { return wantAllEvents(); }
   BranchIDLists const* PoolOutputModule::OMbranchIDLists() { return branchIDLists(); }
-  ThinnedAssociationsHelper const* PoolOutputModule::OMthinnedAssociationsHelper() const { return thinnedAssociationsHelper(); }
+  ThinnedAssociationsHelper const* PoolOutputModule::OMthinnedAssociationsHelper() const {
+    return thinnedAssociationsHelper();
+  }
   ParameterSetID PoolOutputModule::OMselectorConfig() const { return selectorConfig(); }
   SelectedProductsForBranchType const& PoolOutputModule::OMkeptProducts() const { return keptProducts(); }
 
-  std::string const& PoolOutputModule::currentFileName() const {
-    return rootOutputFile_->fileName();
-  }
+  std::string const& PoolOutputModule::currentFileName() const { return rootOutputFile_->fileName(); }
 
   void PoolOutputModule::beginInputFile(FileBlock const& fb) {
-    if(isFileOpen()) {
+    if (isFileOpen()) {
       beginInputFileBase(fb);
       rootOutputFile_->beginInputFile(fb, remainingEvents());
     }
@@ -72,7 +69,8 @@ namespace edm {
     auto init = initializedFromInput();
     respondToOpenInputFileBase(fb, keptProducts());
     beginInputFile(fb);
-    if (isFileOpen() && !init) rootOutputFile_->fillSelectedProductList();
+    if (isFileOpen() && !init)
+      rootOutputFile_->fillSelectedProductList();
   }
 
   void PoolOutputModule::respondToCloseInputFile(FileBlock const& fb) {
@@ -118,13 +116,13 @@ namespace edm {
         processesWithSelectedMergeableRunProducts());  // propagate_const<T> has no reset() function
   }
 
-  void
-  PoolOutputModule::preActionBeforeRunEventAsync(WaitingTask* iTask, ModuleCallingContext const& iModuleCallingContext, Principal const& iPrincipal) const {
+  void PoolOutputModule::preActionBeforeRunEventAsync(WaitingTask* iTask,
+                                                      ModuleCallingContext const& iModuleCallingContext,
+                                                      Principal const& iPrincipal) const {
     preActionBeforeRunEventAsyncBase(iTask, iModuleCallingContext, iPrincipal);
   }
 
-  void
-  PoolOutputModule::fillDescription(ParameterSetDescription& desc) {
+  void PoolOutputModule::fillDescription(ParameterSetDescription& desc) {
     PoolOutputModuleBase::fillDescription(desc);
     OutputModule::fillDescription(desc);
   }
