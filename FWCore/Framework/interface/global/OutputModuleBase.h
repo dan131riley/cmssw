@@ -141,9 +141,9 @@ namespace edm {
 
       bool doEvent(EventPrincipal const& ep, EventSetupImpl const& c, ActivityRegistry*, ModuleCallingContext const*);
       //For now this is a placeholder
-      /*virtual*/ void preActionBeforeRunEventAsync(WaitingTask* iTask,
-                                                    ModuleCallingContext const& iModuleCallingContext,
-                                                    Principal const& iPrincipal) const {}
+      virtual void preActionBeforeRunEventAsync(WaitingTask* iTask,
+                                                ModuleCallingContext const& iModuleCallingContext,
+                                                Principal const& iPrincipal) const {}
 
       bool doBeginRun(RunPrincipal const& rp, EventSetupImpl const& c, ModuleCallingContext const*);
       bool doEndRun(RunPrincipal const& rp, EventSetupImpl const& c, ModuleCallingContext const*);

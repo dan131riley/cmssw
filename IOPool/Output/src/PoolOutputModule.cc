@@ -86,15 +86,11 @@ namespace edm {
     setProcessesWithSelectedMergeableRunProductsBase(processes);
   }
 
-  void PoolOutputModule::setProcessesWithSelectedMergeableRunProducts(std::set<std::string> const& processes) {
-    setProcessesWithSelectedMergeableRunProductsBase(processes);
-  }
-
   void PoolOutputModule::write(EventForOutput const& e) {
     updateBranchParents(e, subProcessParentageHelper());
     rootOutputFile_->writeOne(e);
-    if (!statusFileName_.empty()) {
-      std::ofstream statusFile(statusFileName_.c_str());
+    if (!statusFileName().empty()) {
+      std::ofstream statusFile(statusFileName().c_str());
       statusFile << e.id() << " time: " << std::setprecision(3) << TimeOfDay() << '\n';
       statusFile.close();
     }
@@ -119,7 +115,7 @@ namespace edm {
         this,
         names.first,
         names.second,
-        processesWithSelectedMergeableRunProducts_);  // propagate_const<T> has no reset() function
+        processesWithSelectedMergeableRunProducts());  // propagate_const<T> has no reset() function
   }
 
   void

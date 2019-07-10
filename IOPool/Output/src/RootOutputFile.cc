@@ -78,7 +78,7 @@ namespace edm {
     }
   }  // namespace
 
-  RootOutputFile::RootOutputFile(PoolOutputModule* om,
+  RootOutputFile::RootOutputFile(PoolOutputModuleBase* om,
                                  std::string const& fileName,
                                  std::string const& logicalFileName,
                                  std::vector<std::string> const& processesWithSelectedMergeableRunProducts,
@@ -307,12 +307,6 @@ namespace edm {
       }
     }
   }  // namespace
-
-  Long64_t RootOutputFile::getEntries(const std::string& treeName) const {
-    auto filePtr = const_cast<TFile*>(filePtr_.get());
-    auto tree = dynamic_cast<TTree*>(filePtr->Get(treeName.c_str()));
-    return tree->GetEntries();
-  }
 
   Long64_t RootOutputFile::getEntries(const std::string& treeName) const {
     auto filePtr = const_cast<TFile*>(filePtr_.get());
@@ -589,7 +583,7 @@ namespace edm {
   }
 
   void RootOutputFile::writeThinnedAssociationsHelper() {
-    ThinnedAssociationsHelper const* p = om_->thinnedAssociationsHelper();
+    ThinnedAssociationsHelper const* p = om_->OMthinnedAssociationsHelper();
     TBranch* b =
         metaDataTree_->Branch(poolNames::thinnedAssociationsHelperBranchName().c_str(), &p, om_->basketSize(), 0);
     assert(b);
@@ -709,16 +703,16 @@ namespace edm {
                                        bool produced,
                                        std::set<BranchID> const& iProducedIDs,
                                        std::set<StoredProductProvenance>& oToFill) {
-    assert(om_->dropMetaData() != PoolOutputModule::DropAll);
-    assert(produced || om_->dropMetaData() != PoolOutputModule::DropPrior);
-    if (om_->dropMetaData() == PoolOutputModule::DropDroppedPrior && !produced)
+    assert(om_->dropMetaData() != PoolOutputModuleBase::DropAll);
+    assert(produced || om_->dropMetaData() != PoolOutputModuleBase::DropPrior);
+    if (om_->dropMetaData() == PoolOutputModuleBase::DropDroppedPrior && !produced)
       return;
     std::vector<BranchID> const& parentIDs = iGetParents.parentage().parents();
     for (auto const& parentID : parentIDs) {
       branchesWithStoredHistory_.insert(parentID);
       ProductProvenance const* info = iMapper->branchIDToProvenance(parentID);
       if (info) {
-        if (om_->dropMetaData() == PoolOutputModule::DropNone ||
+        if (om_->dropMetaData() == PoolOutputModuleBase::DropNone ||
             (iProducedIDs.end() != iProducedIDs.find(info->branchID()))) {
           if (insertProductProvenance(*info, oToFill)) {
             //haven't seen this one yet
@@ -759,8 +753,8 @@ namespace edm {
     OutputItemList const& items = om_->selectedOutputItemList()[branchType];
 
     bool const doProvenance =
-        (productProvenanceVecPtr != nullptr) && (om_->dropMetaData() != PoolOutputModule::DropAll);
-    bool const keepProvenanceForPrior = doProvenance && om_->dropMetaData() != PoolOutputModule::DropPrior;
+        (productProvenanceVecPtr != nullptr) && (om_->dropMetaData() != PoolOutputModuleBase::DropAll);
+    bool const keepProvenanceForPrior = doProvenance && om_->dropMetaData() != PoolOutputModuleBase::DropPrior;
 
     bool const fastCloning = (branchType == InEvent) && (whyNotFastClonable_ == FileBlock::CanFastClone);
     std::set<StoredProductProvenance> provenanceToKeep;
@@ -770,7 +764,7 @@ namespace edm {
     // we may be storing meta data for only those products
     // We do this only for event products.
     std::set<BranchID> producedBranches;
-    if (doProvenance && branchType == InEvent && om_->dropMetaData() != PoolOutputModule::DropNone) {
+    if (doProvenance && branchType == InEvent && om_->dropMetaData() != PoolOutputModuleBase::DropNone) {
       Service<ConstProductRegistry> preg;
       for (auto bd : preg->allBranchDescriptions()) {
         if (bd->produced() && bd->branchType() == InEvent) {
