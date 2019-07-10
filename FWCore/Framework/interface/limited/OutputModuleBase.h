@@ -148,7 +148,6 @@ namespace edm {
       virtual void preActionBeforeRunEventAsync(WaitingTask* iTask,
                                                 ModuleCallingContext const& iModuleCallingContext,
                                                 Principal const& iPrincipal) const {}
-
       bool doBeginRun(RunPrincipal const& rp, EventSetupImpl const& c, ModuleCallingContext const*);
       bool doEndRun(RunPrincipal const& rp, EventSetupImpl const& c, ModuleCallingContext const*);
       bool doBeginLuminosityBlock(LuminosityBlockPrincipal const& lbp,
