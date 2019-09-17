@@ -8,6 +8,9 @@
 #include "DataFormats/Provenance/interface/Timestamp.h"
 
 // Auxiliary event data that is persistent
+// NOTE: any additions to this class must also be updated in
+// IOPool/Output/interface/PoolOutputModule.{h,cc}; see the
+// comments there.
 
 namespace edm {
   class EventAux;
@@ -63,7 +66,9 @@ namespace edm {
     EventID const& id() const { return id_; }
     EventID& id() { return id_; }
     std::string const& processGUID() const { return processGUID_; }
+    std::string& processGUID() { return processGUID_; }
     Timestamp const& time() const { return time_; }
+    Timestamp& time() { return time_; }
     LuminosityBlockNumber_t luminosityBlock() const {
       return id_.luminosityBlock() != 0U ? id_.luminosityBlock() : luminosityBlock_;
     }
@@ -74,7 +79,9 @@ namespace edm {
     bool isRealData() const { return isRealData_; }
     ExperimentType experimentType() const { return experimentType_; }
     int bunchCrossing() const { return bunchCrossing_; }
+    int& bunchCrossing() { return bunchCrossing_; }
     int orbitNumber() const { return orbitNumber_; }
+    int& orbitNumber() { return orbitNumber_; }
     int storeNumber() const { return storeNumber_; }
 
   private:

@@ -67,6 +67,7 @@ namespace edm {
     void writeBranchIDListRegistry();
     void writeThinnedAssociationsHelper();
     void writeProductDependencies();
+    void writeEventAuxiliary();
 
     void finishEndFile();
     void beginInputFile(FileBlock const& fb, int remainingEvents);
@@ -79,6 +80,29 @@ namespace edm {
     //-------------------------------
     // Local types
     //
+    struct ReducedEventAuxiliary {  // EventAuxiliary records that change frequently
+      using GUIDmemo = std::unordered_set<std::string>;
+
+      ReducedEventAuxiliary(const EventAuxiliary& aux, GUIDmemo& GUIDs)
+          : id_(aux.id()),
+            processGUID_(memoize(aux.processGUID(), GUIDs)),
+            time_(aux.time()),
+            bunchCrossing_(aux.bunchCrossing()),
+            orbitNumber_(aux.orbitNumber()) {}
+      void restoreEventAux(EventAuxiliary& aux) const;
+      const std::string& memoize(const std::string& processGUID, GUIDmemo& GUIDs) const;
+
+      // Event ID
+      const EventID id_;
+      // Globally unique process ID of process that created event.
+      const std::string& processGUID_;
+      // Time from DAQ
+      const Timestamp time_;
+      //  The bunch crossing number
+      const int bunchCrossing_;
+      // The orbit number
+      const int orbitNumber_;
+    };
 
     //-------------------------------
     // Private functions
@@ -143,6 +167,9 @@ namespace edm {
     std::map<ParentageID, unsigned int> parentageIDs_;
     std::set<BranchID> branchesWithStoredHistory_;
     edm::propagate_const<TClass*> wrapperBaseTClass_;
+    std::vector<ReducedEventAuxiliary> reducedEventAuxiliary_;
+    std::vector<std::pair<int, EventAuxiliary>> eventAuxiliaryRLE_;
+    ReducedEventAuxiliary::GUIDmemo processGUIDs_;
   };
 
 }  // namespace edm

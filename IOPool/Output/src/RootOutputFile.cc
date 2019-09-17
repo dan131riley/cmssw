@@ -78,6 +78,29 @@ namespace edm {
     }
   }  // namespace
 
+  void RootOutputFile::ReducedEventAuxiliary::restoreEventAux(EventAuxiliary& aux) const {
+    aux.id() = id_;
+    aux.processGUID() = processGUID_;
+    aux.time() = time_;
+    aux.bunchCrossing() = bunchCrossing_;
+    aux.orbitNumber() = orbitNumber_;
+  }
+
+  const std::string& RootOutputFile::ReducedEventAuxiliary::memoize(const std::string& processGUID,
+                                                                    GUIDmemo& GUIDs) const {
+    auto it = GUIDs.insert(processGUID);
+    return *it.first;
+  }
+
+  // NB: this *partial* comparison leaves out the most frequently changed items
+  // stored in ReducedEventAuxiliary
+  bool compareInfrequent(const EventAuxiliary& a, const EventAuxiliary& b) {
+    bool same = a.processHistoryID() == b.processHistoryID() && a.oldLuminosityBlock() == b.oldLuminosityBlock() &&
+                a.isRealData() == b.isRealData() && a.experimentType() == b.experimentType() &&
+                a.storeNumber() == b.storeNumber();
+    return same;
+  }
+
   RootOutputFile::RootOutputFile(PoolOutputModule* om,
                                  std::string const& fileName,
                                  std::string const& logicalFileName,
@@ -117,6 +140,20 @@ namespace edm {
         parentageIDs_(),
         branchesWithStoredHistory_(),
         wrapperBaseTClass_(TClass::GetClass("edm::WrapperBase")) {
+    // RootOutputFile takes apart EventAuxiliary into parts that change
+    // frequently and parts that don't.  The parts that change frequently
+    // are stored in reducedEventAuxiliary_; the parts that don't are
+    // run-length encoded in eventAuxiliaryRLE_.  Anytime an element is
+    // added to EventAuxiliary a corresponding change must be made in
+    // RootOutputFile:
+    //
+    // If the added element changes frequently, then it should be added to
+    // ReducedEventAuxiliary and ReducedEventAuxiliary::restoreEventAux updated.
+    //
+    // If the added element changes infrequently, it should be added to
+    // compareInfrequent.
+    static_assert(sizeof(EventAuxiliary) == 112, "EventAuxiliary has changed, update RootOutputFile");
+
     if (om_->compressionAlgorithm() == std::string("ZLIB")) {
       filePtr_->SetCompressionAlgorithm(ROOT::kZLIB);
     } else if (om_->compressionAlgorithm() == std::string("LZMA")) {
@@ -126,11 +163,15 @@ namespace edm {
           << "PoolOutputModule configured with unknown compression algorithm '" << om_->compressionAlgorithm() << "'\n"
           << "Allowed compression algorithms are ZLIB and LZMA\n";
     }
+
     if (-1 != om->eventAutoFlushSize()) {
       eventTree_.setAutoFlush(-1 * om->eventAutoFlushSize());
     }
     eventTree_.addAuxiliary<EventAuxiliary>(
-        BranchTypeToAuxiliaryBranchName(InEvent), pEventAux_, om_->auxItems()[InEvent].basketSize_);
+        BranchTypeToAuxiliaryBranchName(InEvent), pEventAux_, om_->auxItems()[InEvent].basketSize_, false);
+    eventTree_.tree()->SetBranchStatus(BranchTypeToAuxiliaryBranchName(InEvent).c_str(),
+                                       false);  // see writeEventAuxiliary
+
     eventTree_.addAuxiliary<StoredProductProvenanceVector>(BranchTypeToProductProvenanceBranchName(InEvent),
                                                            pEventEntryInfoVector(),
                                                            om_->auxItems()[InEvent].basketSize_);
@@ -382,7 +423,9 @@ namespace edm {
   }
 
   void RootOutputFile::respondToCloseInputFile(FileBlock const&) {
-    eventTree_.setEntries();
+    // We can't do setEntries() on the event tree because EventAuxiliary is empty;
+    // only do setEntries() when the output file closes
+    //eventTree_.setEntries();
     lumiTree_.setEntries();
     runTree_.setEntries();
   }
@@ -399,7 +442,7 @@ namespace edm {
 
     // Because getting the data may cause an exception to be thrown we want to do that
     // first before writing anything to the file about this event
-    // NOTE: pEventAux_, pBranchListIndexes_, pEventSelectionIDs_, and pEventEntryInfoVector_
+    // NOTE: pBranchListIndexes_, pEventSelectionIDs_, and pEventEntryInfoVector_
     // must be set before calling fillBranches since they get written out in that routine.
     assert(pEventAux_->processHistoryID() == e.processHistoryID());
     pBranchListIndexes_ = &e.branchListIndexes();
@@ -435,6 +478,13 @@ namespace edm {
     indexIntoFile_.addEntry(
         reducedPHID, pEventAux_->run(), pEventAux_->luminosityBlock(), pEventAux_->event(), eventEntryNumber_);
     ++eventEntryNumber_;
+
+    reducedEventAuxiliary_.emplace_back(*pEventAux_, processGUIDs_);
+    if (eventAuxiliaryRLE_.size() > 0 && compareInfrequent(eventAuxiliaryRLE_.back().second, *pEventAux_)) {
+      ++eventAuxiliaryRLE_.back().first;
+    } else {
+      eventAuxiliaryRLE_.emplace_back(1, *pEventAux_);
+    }
 
     // Report event written
     Service<JobReport> reportSvc;
@@ -609,6 +659,47 @@ namespace edm {
         metaDataTree_->Branch(poolNames::productDependenciesBranchName().c_str(), &ppDeps, om_->basketSize(), 0);
     assert(b);
     b->Fill();
+  }
+
+  // For duplicate removal and to determine if fast cloning is possible, the input
+  // module by default reads the entire EventAuxiliary branch when it opens the
+  // input files.  If EventAuxiliary is written in the usual way, this results
+  // in many small reads scattered throughout the file, which can have very poor
+  // performance characteristics on some filesystems.  As a workaround, we save
+  // EventAuxiliary in two parts, a ReducedEventAuxiliary that is saved every event,
+  // and an EventAuxiliary for the infrequently changing parts that is run-length
+  // encoded.
+  //
+  // These two parts are used to reconstruct the full EventAuxiliary, writing the
+  // branch as we are closing the file, resulting in one or two baskets at the end
+  // of the file  that can be accessed with one or two reads.
+
+  void RootOutputFile::writeEventAuxiliary() {
+    auto tree = eventTree_.tree();
+    auto bname = BranchTypeToAuxiliaryBranchName(InEvent).c_str();
+
+    tree->SetBranchStatus(bname, true);
+    auto basketsize = reducedEventAuxiliary_.size() * (sizeof(EventAuxiliary) + 26);  // 26 is an empirical fudge factor
+    tree->SetBasketSize(bname, basketsize);
+    auto b = tree->GetBranch(bname);
+
+    assert(b);
+
+    LogDebug("writeEventAuxiliary")
+        << "EventAuxiliary ratio RLE/all = " << eventAuxiliaryRLE_.size() << "/" << reducedEventAuxiliary_.size();
+
+    auto rleIter = eventAuxiliaryRLE_.begin();
+
+    for (auto const& reducedAux : reducedEventAuxiliary_) {
+      reducedAux.restoreEventAux(rleIter->second);
+      pEventAux_ = &rleIter->second;
+      // Fill EventAuxiliary branch
+      b->Fill();
+      if (--(rleIter->first) == 0) {
+        ++rleIter;
+      }
+    }
+    assert(rleIter == eventAuxiliaryRLE_.end());
   }
 
   void RootOutputFile::finishEndFile() {
