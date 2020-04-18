@@ -27,6 +27,7 @@
 #include <memory>
 #include <atomic>
 #include <mutex>
+#include <fstream>
 
 #include "FWCore/Utilities/interface/GCC11Compatibility.h"
 
@@ -39,11 +40,17 @@
 #endif
 
 namespace {
+  std::ofstream datafile("stripdata.bin", std::ios::out | std::ios::binary);
+
   std::unique_ptr<sistrip::FEDBuffer> fillBuffer(int fedId, const FEDRawDataCollection& rawColl) {
     std::unique_ptr<sistrip::FEDBuffer> buffer;
 
     // Retrieve FED raw data for given FED
     const FEDRawData& rawData = rawColl.FEDData(fedId);
+    size_t size = rawData.size();
+    datafile.write((char*) &size, sizeof(size));
+    datafile.write((char*) &fedId, sizeof(fedId));
+    datafile.write((char*) rawData.data(), size);
 
     // Check on FEDRawData pointer
     const auto st_buffer = sistrip::preconstructCheckFEDBuffer(rawData);
@@ -182,9 +189,47 @@ public:
     produces<edmNew::DetSetVector<SiStripCluster> >();
     assert(clusterizer_.get());
     assert(rawAlgos_.get());
+    onDemand = false;
   }
 
-  void beginRun(const edm::Run&, const edm::EventSetup& es) override { initialize(es); }
+  void beginRun(const edm::Run&, const edm::EventSetup& es) override {
+    struct ChannelConditions {
+      ChannelConditions(uint16_t fed, uint32_t det, uint8_t chan, uint16_t pair)
+        : fedId_(fed), detId_(det), fedCh_(chan), ipair_(pair) {}
+      void SetStrip(uint16_t strip, float noise, float gain, bool bad) {
+        noise_[strip] = noise;
+        gain_[strip] = gain;
+        bad_[strip] = bad;
+      }
+
+      uint16_t fedId_;
+      uint32_t  detId_;
+      uint8_t fedCh_;
+      uint16_t ipair_;
+      float noise_[256];
+      float gain_[256];
+      bool bad_[256];
+    };
+
+    initialize(es);
+
+    std::ofstream condfile("stripcond.bin", std::ios::out | std::ios::binary);
+
+    for ( auto idet : clusterizer_->allDetIds()) {
+      auto det = clusterizer_->findDetId(idet);
+      for (auto const conn : clusterizer_->currentConnection(det)) {
+        if (conn && conn->fedId() && conn->isConnected()) {
+          ChannelConditions cc(conn->fedId(), idet, conn->fedCh(), conn->apvPairNumber());
+          auto offset = 256 * conn->apvPairNumber();
+          for (auto strip = 0; strip < 256; ++strip) {
+            auto detstrip = strip + offset;
+            cc.SetStrip(strip, det.noise(detstrip), det.gain(detstrip), det.bad(detstrip));
+          }
+          condfile.write((char*) &cc, sizeof(cc));
+        }
+      }
+    }
+  }
 
   void produce(edm::Event& ev, const edm::EventSetup& es) override {
     initialize(es);
@@ -248,6 +293,9 @@ void SiStripClusterizerFromRaw::initialize(const edm::EventSetup& es) {
 void SiStripClusterizerFromRaw::run(const FEDRawDataCollection& rawColl, edmNew::DetSetVector<SiStripCluster>& output) {
   ClusterFiller filler(rawColl, *clusterizer_, *rawAlgos_, doAPVEmulatorCheck_, legacy_, hybridZeroSuppressed_);
 
+  size_t mark = SIZE_MAX;
+  datafile.write((char*)&mark, sizeof(mark));
+
   // loop over good det in cabling
   for (auto idet : clusterizer_->allDetIds()) {
     StripClusterizerAlgorithm::output_t::TSFastFiller record(output, idet);
@@ -257,6 +305,18 @@ void SiStripClusterizerFromRaw::run(const FEDRawDataCollection& rawColl, edmNew:
     if (record.empty())
       record.abort();
 
+    static bool first = true;
+    if (first || idet == 369120277) {
+      first = false;
+      std::cout << "Printing clusters for detid " << idet << std::endl;
+      for (const auto& cluster : record) {
+        std::cout << "Cluster " << cluster.firstStrip() << ": ";
+        for (const auto& ampl : cluster.amplitudes()) {
+          std::cout << (int) ampl << " ";
+        }
+        std::cout << std::endl;
+      }
+    }
   }  // end loop over dets
 }
 
