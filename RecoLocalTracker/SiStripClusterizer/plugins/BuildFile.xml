@@ -1,6 +1,7 @@
 <library   name="RecoLocalTrackerSiStripClusterizerPlugins" file="*.cc *.cu">
   <use name="cub"/>
   <use name="cuda"/>
+  <use name="boost"/>
   <use   name="RecoLocalTracker/SiStripClusterizer"/>
   <use   name="RecoLocalTracker/SiStripZeroSuppression"/>
   <flags   EDM_PLUGIN="1"/>

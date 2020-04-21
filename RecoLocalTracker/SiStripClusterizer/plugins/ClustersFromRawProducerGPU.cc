@@ -100,13 +100,12 @@ public:
     //initialize(es); // ??
 
     // Sets the current device and creates a CUDA stream
-    cms::cuda::ScopedContextAcquire ctx{ev.streamID(), std::move(waitingTaskHolder)};
+    cms::cuda::ScopedContextAcquire ctx{ev.streamID(), std::move(waitingTaskHolder), ctxState_};
 
     // get raw data
     edm::Handle<FEDRawDataCollection> rawData;
     ev.getByToken(productToken_, rawData);
 
-    std::unique_ptr<edmNew::DetSetVector<SiStripCluster> > output(new edmNew::DetSetVector<SiStripCluster>());
     run(*rawData);
 
     // Queues asynchronous data transfers and kernels to the CUDA stream
@@ -118,12 +117,9 @@ public:
   }
 
   void produce(edm::Event& ev, const edm::EventSetup& es) override {
-    gpuAlgo_.getResults();
+    cms::cuda::ScopedContextProduce ctx{ctxState_};
 
-    std::unique_ptr<edmNew::DetSetVector<SiStripCluster> > output(new edmNew::DetSetVector<SiStripCluster>());
-
-    output->reserve(15000, 24 * 10000);
-    output->shrink_to_fit();
+    auto output = gpuAlgo_.getResults(ctx.stream());
 
     ev.put(std::move(output));
 
@@ -139,6 +135,7 @@ private:
 private:
   std::vector<std::unique_ptr<sistrip::FEDBuffer>> buffers;
   std::vector<const FEDRawData*> raw;
+  cms::cuda::ContextState ctxState_;
 
   stripgpu::SiStripRawToClusterGPUKernel gpuAlgo_;
   std::unique_ptr<SiStripConditionsGPUWrapper> conditionsWrapper;

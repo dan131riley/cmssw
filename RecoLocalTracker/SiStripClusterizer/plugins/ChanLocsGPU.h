@@ -100,7 +100,7 @@ public:
   ChannelLocsGPU(ChannelLocsGPU&& arg)
     : ChannelLocsBase(std::move(arg)), chanstruct_(std::move(arg.chanstruct_)) {}
   ~ChannelLocsGPU();
-  void reset(const ChannelLocs& c, const std::vector<uint8_t*>& inputGPU, cudaStream_t stream);
+  void setvals(const ChannelLocs* c, const std::vector<uint8_t*>& inputGPU, cudaStream_t stream);
   const ChanLocStruct* chanLocStruct() const { return chanstruct_.get(); }
 private:
   cms::cuda::device::unique_ptr<ChanLocStruct> chanstruct_;
