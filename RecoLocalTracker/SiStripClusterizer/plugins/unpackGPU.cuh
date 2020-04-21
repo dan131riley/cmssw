@@ -16,4 +16,4 @@ public:
   cms::cuda::device::unique_ptr<stripgpu::fedCh_t[]> fedChGPU_;
 };
 
-void unpackChannelsGPU(const ChannelLocsGPU& chanlocs, const SiStripConditionsGPU* conditions, StripDataGPU& stripdata, cudaStream_t stream);
+void unpackChannelsGPU(const ChannelLocsGPU* chanlocs, const SiStripConditionsGPU* conditions, StripDataGPU* stripdata, cudaStream_t stream);

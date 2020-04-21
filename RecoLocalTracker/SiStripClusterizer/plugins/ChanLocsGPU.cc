@@ -50,15 +50,15 @@ ChannelLocsGPU::ChannelLocsGPU(size_t size, cudaStream_t stream)
   }
 }
 
-void ChannelLocsGPU::reset(const ChannelLocs& c, const std::vector<uint8_t*>& inputGPU, cudaStream_t stream)
+void ChannelLocsGPU::setvals(const ChannelLocs* c, const std::vector<uint8_t*>& inputGPU, cudaStream_t stream)
 {
-  assert(c.size() == size_);
+  assert(c->size() == size_);
   cudaCheck(cudaMemcpyAsync(input_.get(), inputGPU.data(), sizeof(uint8_t*)*size_, cudaMemcpyDefault, stream));
-  cms::cuda::copyAsync(inoff_, c.inoff_, size_, stream);
-  cms::cuda::copyAsync(offset_, c.offset_, size_, stream);
-  cms::cuda::copyAsync(length_, c.length_, size_, stream);
-  cms::cuda::copyAsync(fedID_, c.fedID_, size_, stream);
-  cms::cuda::copyAsync(fedCh_, c.fedCh_, size_, stream);
+  cms::cuda::copyAsync(inoff_, c->inoff_, size_, stream);
+  cms::cuda::copyAsync(offset_, c->offset_, size_, stream);
+  cms::cuda::copyAsync(length_, c->length_, size_, stream);
+  cms::cuda::copyAsync(fedID_, c->fedID_, size_, stream);
+  cms::cuda::copyAsync(fedCh_, c->fedCh_, size_, stream);
 }
 
 ChannelLocsGPU::~ChannelLocsGPU()

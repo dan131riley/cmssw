@@ -39,18 +39,20 @@
 #endif
 
 namespace {
+#ifdef DSRDEBUG
   std::ofstream datafile("stripdata.bin", std::ios::out | std::ios::binary);
-
+#endif
   std::unique_ptr<sistrip::FEDBuffer> fillBuffer(int fedId, const FEDRawDataCollection& rawColl) {
     std::unique_ptr<sistrip::FEDBuffer> buffer;
 
     // Retrieve FED raw data for given FED
     const FEDRawData& rawData = rawColl.FEDData(fedId);
+#ifdef DSRDEBUG
     size_t size = rawData.size();
     datafile.write((char*) &size, sizeof(size));
     datafile.write((char*) &fedId, sizeof(fedId));
     datafile.write((char*) rawData.data(), size);
-
+#endif
     // Check on FEDRawData pointer
     const auto st_buffer = sistrip::preconstructCheckFEDBuffer(rawData);
     if UNLIKELY (sistrip::FEDBufferStatusCode::SUCCESS != st_buffer) {
@@ -190,7 +192,8 @@ public:
   }
 
   void beginRun(const edm::Run&, const edm::EventSetup& es) override {
-    struct ChannelConditions {
+#ifdef DSRDEBUG
+      struct ChannelConditions {
       ChannelConditions(uint16_t fed, uint32_t det, uint8_t chan, uint16_t pair)
         : fedId_(fed), detId_(det), fedCh_(chan), ipair_(pair) {}
       void SetStrip(uint16_t strip, float noise, float gain, bool bad) {
@@ -207,9 +210,10 @@ public:
       float gain_[256];
       bool bad_[256];
     };
-
+#endif
     initialize(es);
 
+#ifdef DSRDEBUG
     std::ofstream condfile("stripcond.bin", std::ios::out | std::ios::binary);
 
     for ( auto idet : clusterizer_->allDetIds()) {
@@ -226,6 +230,7 @@ public:
         }
       }
     }
+#endif
   }
 
   void produce(edm::Event& ev, const edm::EventSetup& es) override {
@@ -287,9 +292,10 @@ void SiStripClusterizerFromRaw::initialize(const edm::EventSetup& es) {
 void SiStripClusterizerFromRaw::run(const FEDRawDataCollection& rawColl, edmNew::DetSetVector<SiStripCluster>& output) {
   ClusterFiller filler(rawColl, *clusterizer_, *rawAlgos_, doAPVEmulatorCheck_, legacy_, hybridZeroSuppressed_);
 
+#ifdef DSRDEBUG
   size_t mark = SIZE_MAX;
   datafile.write((char*)&mark, sizeof(mark));
-
+#endif
   // loop over good det in cabling
   for (auto idet : clusterizer_->conditions().allDetIds()) {
     StripClusterizerAlgorithm::output_t::TSFastFiller record(output, idet);
@@ -299,6 +305,7 @@ void SiStripClusterizerFromRaw::run(const FEDRawDataCollection& rawColl, edmNew:
     if (record.empty())
       record.abort();
 
+#ifdef DSRDEBUG
     static bool first = true;
     if (first || idet == 369120277) {
       first = false;
@@ -311,6 +318,7 @@ void SiStripClusterizerFromRaw::run(const FEDRawDataCollection& rawColl, edmNew:
         std::cout << std::endl;
       }
     }
+#endif
   }  // end loop over dets
 }
 

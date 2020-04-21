@@ -66,16 +66,16 @@ StripDataGPU::StripDataGPU(size_t size, cudaStream_t stream)
   fedChGPU_ = cms::cuda::make_device_unique<stripgpu::fedCh_t[]>(size, stream);
 }
 
-void unpackChannelsGPU(const ChannelLocsGPU& chanlocs, const SiStripConditionsGPU* conditions, StripDataGPU& stripdata, cudaStream_t stream)
+void unpackChannelsGPU(const ChannelLocsGPU* chanlocs, const SiStripConditionsGPU* conditions, StripDataGPU* stripdata, cudaStream_t stream)
 {
   constexpr int nthreads = 128;
-  const auto channels = chanlocs.size();
+  const auto channels = chanlocs->size();
   const auto nblocks = (channels + nthreads - 1)/nthreads;
   
-  unpackChannels<<<nblocks, nthreads, 0, stream>>>(chanlocs.chanLocStruct(), conditions,
-                                                   stripdata.alldataGPU_.get(),
-                                                   stripdata.detIdGPU_.get(),
-                                                   stripdata.stripIdGPU_.get(),
-                                                   stripdata.fedIdGPU_.get(),
-                                                   stripdata.fedChGPU_.get());
+  unpackChannels<<<nblocks, nthreads, 0, stream>>>(chanlocs->chanLocStruct(), conditions,
+                                                   stripdata->alldataGPU_.get(),
+                                                   stripdata->detIdGPU_.get(),
+                                                   stripdata->stripIdGPU_.get(),
+                                                   stripdata->fedIdGPU_.get(),
+                                                   stripdata->fedChGPU_.get());
 }
