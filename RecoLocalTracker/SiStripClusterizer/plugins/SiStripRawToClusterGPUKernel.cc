@@ -1,5 +1,3 @@
-#include <boost/range/adaptor/strided.hpp>
-
 #include "RecoLocalTracker/SiStripClusterizer/interface/SiStripConditionsGPUWrapper.h"
 #include "HeterogeneousCore/CUDAUtilities/interface/host_unique_ptr.h"
 #include "HeterogeneousCore/CUDAUtilities/interface/copyAsync.h"
@@ -24,12 +22,9 @@ namespace stripgpu {
     fedRawDataGPU = cms::cuda::make_device_unique<uint8_t[]>(totalSize, stream);
 
     size_t off = 0;
-    std::vector<stripgpu::fedId_t> fedIndex(stripgpu::kFedCount, stripgpu::invFed);
-    std::vector<stripgpu::fedId_t> fedIdv;
-    std::vector<size_t> fedRawDataOffsets;
-
-    fedRawDataOffsets.reserve(stripgpu::kFedCount);
-    fedIdv.reserve(stripgpu::kFedCount);
+    fedRawDataOffsets.clear();
+    fedIndex.clear();
+    fedIndex.resize(stripgpu::kFedCount, stripgpu::invFed);
 
     sistrip::FEDReadoutMode mode = sistrip::READOUT_MODE_INVALID;
 
@@ -38,11 +33,10 @@ namespace stripgpu {
       if (buff != nullptr) {
         const auto raw = rawdata[fedi];
         memcpy(fedRawDataHost.get() + off, raw->data(), raw->size());
-        fedIndex[stripgpu::fedIndex(fedi)] = fedIdv.size();
-        fedIdv.push_back(fedi);
+        fedIndex[stripgpu::fedIndex(fedi)] = fedRawDataOffsets.size();
         fedRawDataOffsets.push_back(off);
         off += raw->size();
-        if (fedIdv.size() == 1) {
+        if (fedRawDataOffsets.size() == 1) {
           mode = buff->readoutMode();
         } else {
           assert(buff->readoutMode() == mode);
@@ -144,6 +138,11 @@ namespace stripgpu {
                    stream);
   }
 
+  void SiStripRawToClusterGPUKernel::copyAsync(cudaStream_t stream)
+  {
+    cpyGPUToCPU(clust_data.get(), clust_data_d.get(), stream);
+  }
+
   std::unique_ptr<edmNew::DetSetVector<SiStripCluster>>
   SiStripRawToClusterGPUKernel::getResults(cudaStream_t stream)
   {
@@ -151,7 +150,7 @@ namespace stripgpu {
 
     std::unique_ptr<out_t> output(new edmNew::DetSetVector<SiStripCluster>());
 
-    const int nSeedStripsNC = sst_data_d->nSeedStripsNC;
+    const int nSeedStripsNC = clust_data->nSeedStripsNC;
     const auto clusterLastIndexLeft = clust_data->clusterLastIndexLeft;
     const auto clusterLastIndexRight = clust_data->clusterLastIndexRight;
     const auto ADCs = clust_data->clusterADCs;
@@ -161,40 +160,42 @@ namespace stripgpu {
 
     output->reserve(15000, nSeedStripsNC);
 
-    for (int i = 0; i < nSeedStripsNC; i++) {
-      if (trueCluster[i]){
-        const auto detid = detIDs[i];
+    std::vector<uint8_t> adcs;
+    adcs.reserve(kClusterMaxStrips);
 
-        out_t::FastFiller record(*output, detid);
+    for (int i = 0; i < nSeedStripsNC;) {
+      const auto detid = detIDs[i];
+      out_t::FastFiller record(*output, detid);
 
-        while (i < nSeedStripsNC && detIDs[i] == detid) {
-          if (trueCluster[i]){
-            const auto left=clusterLastIndexLeft[i];
-            const auto right=clusterLastIndexRight[i];
-            const auto size=std::min(right-left+1, kClusterMaxStrips);
-            const auto firstStrip = stripIDs[i];
+      while (i < nSeedStripsNC && detIDs[i] == detid) {
+        if (trueCluster[i]){
+          const auto left=clusterLastIndexLeft[i];
+          const auto right=clusterLastIndexRight[i];
+          const auto size=std::min(right-left+1, kClusterMaxStrips);
+          const auto firstStrip = stripIDs[i];
 
-            auto strided = std::make_pair(&ADCs[i], &ADCs[i+size*nSeedStripsNC]) | boost::adaptors::strided(nSeedStripsNC);
-            record.push_back(SiStripCluster(firstStrip, strided.begin(), strided.end()));
+          adcs.clear();
+          for (auto j = 0; j < size; ++j) {
+            adcs.push_back(ADCs[i+j*nSeedStripsNC]);
           }
-          i++;
+          record.push_back(SiStripCluster(firstStrip, adcs.begin(), adcs.end()));
         }
-
-        i--; // backup to last of previous detid
-#define DSRDEBUG
-#ifdef DSRDEBUG
-        if (detid == 369120277) {
-          std::cout << "Printing clusters for detid " << detid << std::endl;
-          for (const auto& cluster : record) {
-            std::cout << "Cluster " << cluster.firstStrip() << ": ";
-            for (const auto& ampl : cluster.amplitudes()) {
-              std::cout << (int) ampl << " ";
-            }
-            std::cout << std::endl;
-          }
-        }
-#endif
+        i++;
       }
+
+//#define DSRDEBUG
+#ifdef DSRDEBUG
+      if (detid == 369120277) {
+        std::cout << "Printing clusters for detid " << detid << std::endl;
+        for (const auto& cluster : record) {
+          std::cout << "Cluster " << cluster.firstStrip() << ": ";
+          for (const auto& ampl : cluster.amplitudes()) {
+            std::cout << (int) ampl << " ";
+          }
+          std::cout << std::endl;
+        }
+      }
+#endif
     }
 
     output->shrink_to_fit();

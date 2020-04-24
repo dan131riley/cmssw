@@ -112,6 +112,10 @@ public:
     // returned by cms::cuda::ScopedContextAcquire::stream()
     gpuAlgo_.makeAsync(raw, buffers, conditionsWrapper.get(), ctx.stream());
 
+    ctx.pushNextTask([this](cms::cuda::ScopedContextTask ctx) {
+      copyToCPU(ctx);
+    });
+
     // Destructor of ctx queues a callback to the CUDA stream notifying
     // waitingTaskHolder when the queued asynchronous work has finished
   }
@@ -131,6 +135,9 @@ private:
   void initialize(const edm::EventSetup& es);
   void run(const FEDRawDataCollection& rawColl);
   void fill(uint32_t idet, const FEDRawDataCollection& rawColl);
+  void copyToCPU(cms::cuda::ScopedContextTask& ctx) {
+    gpuAlgo_.copyAsync(ctx.stream());
+  }
 
 private:
   std::vector<std::unique_ptr<sistrip::FEDBuffer>> buffers;
