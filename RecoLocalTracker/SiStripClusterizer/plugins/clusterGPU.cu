@@ -8,7 +8,6 @@
 #include "HeterogeneousCore/CUDAUtilities/interface/host_unique_ptr.h"
 #include "HeterogeneousCore/CUDAUtilities/interface/device_unique_ptr.h"
 
-
 #include "clusterGPU.cuh"
 
 //#define GPU_DEBUG
@@ -18,6 +17,8 @@ using fedId_t = stripgpu::fedId_t;
 using fedCh_t = stripgpu::fedCh_t;
 using detId_t = stripgpu::detId_t;
 using stripId_t = stripgpu::stripId_t;
+
+__device__ constexpr int maxseeds() { return MAX_SEEDSTRIPS; }
 
 __global__
 static void setSeedStripsGPU(sst_data_t *sst_data_d, const SiStripConditionsGPU *conditions) {
@@ -93,12 +94,12 @@ __global__
 static void findLeftRightBoundaryGPU(sst_data_t *sst_data_d, const SiStripConditionsGPU *conditions, clust_data_t *clust_data_d) {
   const int nStrips = sst_data_d->nStrips;
   const int *__restrict__ seedStripsNCIndex = sst_data_d->seedStripsNCIndex;
-  const int nSeedStripsNC = sst_data_d->nSeedStripsNC;
   const uint16_t *__restrict__ stripId = sst_data_d->stripId;
   const detId_t *__restrict__ detId = sst_data_d->detId;
   const uint8_t *__restrict__ adc = sst_data_d->adc;
   const fedId_t *__restrict__ fedId = sst_data_d->fedId;
   const fedCh_t *__restrict__ fedCh = sst_data_d->fedCh;
+  const int nSeedStripsNC = std::min(maxseeds(), *(sst_data_d->prefixSeedStripsNCMask+nStrips-1));
 
   int *__restrict__ clusterLastIndexLeft = clust_data_d->clusterLastIndexLeft;
   int *__restrict__ clusterLastIndexRight = clust_data_d->clusterLastIndexRight;
@@ -106,88 +107,88 @@ static void findLeftRightBoundaryGPU(sst_data_t *sst_data_d, const SiStripCondit
   stripId_t *__restrict__ firstStrip = clust_data_d->firstStrip;
   bool *__restrict__ trueCluster = clust_data_d->trueCluster;
 
-   constexpr uint8_t MaxSequentialHoles = 0;
-   constexpr float  ChannelThreshold = 2.0f;
-   constexpr float ClusterThresholdSquared = 25.0f;
+  constexpr uint8_t MaxSequentialHoles = 0;
+  constexpr float  ChannelThreshold = 2.0f;
+  constexpr float ClusterThresholdSquared = 25.0f;
 
-   const int tid = threadIdx.x;
-   const int bid = blockIdx.x;
-   const int nthreads = blockDim.x;
+  const int tid = threadIdx.x;
+  const int bid = blockIdx.x;
+  const int nthreads = blockDim.x;
 
-   const int i = nthreads * bid + tid;
+  const int i = nthreads * bid + tid;
 
-   if (i < nSeedStripsNC) {
-     const auto index = seedStripsNCIndex[i];
-     const auto fed = fedId[index];
-     const auto channel = fedCh[index];
-     const auto strip = stripId[index];
-     const auto noise_i = conditions->noise(fed, channel, strip);
+  if (i < nSeedStripsNC) {
+    const auto index = seedStripsNCIndex[i];
+    const auto fed = fedId[index];
+    const auto channel = fedCh[index];
+    const auto strip = stripId[index];
+    const auto noise_i = conditions->noise(fed, channel, strip);
 
-     auto noiseSquared_i = noise_i*noise_i;
-     float adcSum_i = static_cast<float>(adc[index]);
+    auto noiseSquared_i = noise_i*noise_i;
+    float adcSum_i = static_cast<float>(adc[index]);
 
-     // find left boundary
-     auto indexLeft = index;
-     auto testIndexLeft = index-1;
+    // find left boundary
+    auto indexLeft = index;
+    auto testIndexLeft = index-1;
 
-     if (testIndexLeft >= 0) {
-       auto rangeLeft = stripId[indexLeft]-stripId[testIndexLeft]-1;
-       auto sameDetLeft = detId[index] == detId[testIndexLeft];
+    if (testIndexLeft >= 0) {
+      auto rangeLeft = stripId[indexLeft]-stripId[testIndexLeft]-1;
+      auto sameDetLeft = detId[index] == detId[testIndexLeft];
 
-       while(sameDetLeft && testIndexLeft>=0 && rangeLeft>=0 && rangeLeft<=MaxSequentialHoles) {
-         const auto testFed = fedId[testIndexLeft];
-         const auto testChannel = fedCh[testIndexLeft];
-         const auto testStrip = stripId[testIndexLeft];
-         const auto testNoise = conditions->noise(testFed, testChannel, testStrip);
-         const auto testADC = adc[testIndexLeft];
+      while(sameDetLeft && testIndexLeft>=0 && rangeLeft>=0 && rangeLeft<=MaxSequentialHoles) {
+        const auto testFed = fedId[testIndexLeft];
+        const auto testChannel = fedCh[testIndexLeft];
+        const auto testStrip = stripId[testIndexLeft];
+        const auto testNoise = conditions->noise(testFed, testChannel, testStrip);
+        const auto testADC = adc[testIndexLeft];
 
-         if (testADC >= static_cast<uint8_t>(testNoise * ChannelThreshold)) {
-           --indexLeft;
-           noiseSquared_i += testNoise*testNoise;
-           adcSum_i += static_cast<float>(testADC);
-         }
-         --testIndexLeft;
-         if (testIndexLeft >= 0) {
-           rangeLeft = stripId[indexLeft]-stripId[testIndexLeft]-1;
-           sameDetLeft = detId[index] == detId[testIndexLeft];
-         }
-       }
-     }
+        if (testADC >= static_cast<uint8_t>(testNoise * ChannelThreshold)) {
+          --indexLeft;
+          noiseSquared_i += testNoise*testNoise;
+          adcSum_i += static_cast<float>(testADC);
+        }
+        --testIndexLeft;
+        if (testIndexLeft >= 0) {
+          rangeLeft = stripId[indexLeft]-stripId[testIndexLeft]-1;
+          sameDetLeft = detId[index] == detId[testIndexLeft];
+        }
+      }
+    }
 
-     // find right boundary
-     auto indexRight = index;
-     auto testIndexRight = index+1;
+    // find right boundary
+    auto indexRight = index;
+    auto testIndexRight = index+1;
 
-     if (testIndexRight < nStrips) {
-       auto rangeRight = stripId[testIndexRight]-stripId[indexRight]-1;
-       auto sameDetRight = detId[index] == detId[testIndexRight];
+    if (testIndexRight < nStrips) {
+      auto rangeRight = stripId[testIndexRight]-stripId[indexRight]-1;
+      auto sameDetRight = detId[index] == detId[testIndexRight];
 
-       while(sameDetRight && testIndexRight<nStrips && rangeRight>=0 && rangeRight<=MaxSequentialHoles) {
-         const auto testFed = fedId[testIndexRight];
-         const auto testChannel = fedCh[testIndexRight];
-         const auto testStrip = stripId[testIndexRight];
-         const auto testNoise = conditions->noise(testFed, testChannel, testStrip);
-         const auto testADC = adc[testIndexRight];
+      while(sameDetRight && testIndexRight<nStrips && rangeRight>=0 && rangeRight<=MaxSequentialHoles) {
+        const auto testFed = fedId[testIndexRight];
+        const auto testChannel = fedCh[testIndexRight];
+        const auto testStrip = stripId[testIndexRight];
+        const auto testNoise = conditions->noise(testFed, testChannel, testStrip);
+        const auto testADC = adc[testIndexRight];
 
-         if (testADC >= static_cast<uint8_t>(testNoise * ChannelThreshold)) {
-           ++indexRight;
-           noiseSquared_i += testNoise*testNoise;
-           adcSum_i += static_cast<float>(testADC);
-         }
-         ++testIndexRight;
-         if (testIndexRight < nStrips) {
-           rangeRight = stripId[testIndexRight]-stripId[indexRight]-1;
-           sameDetRight = detId[index] == detId[testIndexRight];
-         }
-       }
-     }
-     trueCluster[i] = noiseSquared_i*ClusterThresholdSquared <= adcSum_i*adcSum_i;
-     clusterLastIndexLeft[i] = indexLeft;
-     clusterLastIndexRight[i] = indexRight;
-     clusterDetId[i] = detId[indexLeft];
-     firstStrip[i] = stripId[indexLeft];
-   }
- }
+        if (testADC >= static_cast<uint8_t>(testNoise * ChannelThreshold)) {
+          ++indexRight;
+          noiseSquared_i += testNoise*testNoise;
+          adcSum_i += static_cast<float>(testADC);
+        }
+        ++testIndexRight;
+        if (testIndexRight < nStrips) {
+          rangeRight = stripId[testIndexRight]-stripId[indexRight]-1;
+          sameDetRight = detId[index] == detId[testIndexRight];
+        }
+      }
+    }
+    trueCluster[i] = noiseSquared_i*ClusterThresholdSquared <= adcSum_i*adcSum_i;
+    clusterLastIndexLeft[i] = indexLeft;
+    clusterLastIndexRight[i] = indexRight;
+    clusterDetId[i] = detId[indexLeft];
+    firstStrip[i] = stripId[indexLeft];
+  }
+}
 
 __global__
 static void checkClusterConditionGPU(sst_data_t *sst_data_d, const SiStripConditionsGPU *conditions, clust_data_t *clust_data_d) {
@@ -195,9 +196,9 @@ static void checkClusterConditionGPU(sst_data_t *sst_data_d, const SiStripCondit
    const uint8_t *__restrict__ adc = sst_data_d->adc;
    const fedId_t *__restrict__ fedId = sst_data_d->fedId;
    const fedCh_t *__restrict__ fedCh = sst_data_d->fedCh;
-   const int nSeedStripsNC = sst_data_d->nSeedStripsNC;
    const int *__restrict__ clusterLastIndexLeft = clust_data_d->clusterLastIndexLeft;
    const int *__restrict__ clusterLastIndexRight = clust_data_d->clusterLastIndexRight;
+   const int nSeedStripsNC = std::min(maxseeds(), *(sst_data_d->prefixSeedStripsNCMask+sst_data_d->nStrips-1));
 
    uint8_t *__restrict__ clusterADCs = clust_data_d->clusterADCs;
    bool *__restrict__ trueCluster = clust_data_d->trueCluster;
@@ -255,16 +256,6 @@ static void checkClusterConditionGPU(sst_data_t *sst_data_d, const SiStripCondit
      }
    }
  }
-
-__global__
-static void setNSeedStripsNCGPU(sst_data_t *sst_data_d)
-{
-  sst_data_d->nSeedStripsNC = *(sst_data_d->prefixSeedStripsNCMask+sst_data_d->nStrips-1);
-  if (sst_data_d->nSeedStripsNC > MAX_SEEDSTRIPS) {
-    printf("nSeedStripsNC = %d\n", sst_data_d->nSeedStripsNC);
-    sst_data_d->nSeedStripsNC = MAX_SEEDSTRIPS;
-  }
-}
 
 void allocateSSTDataGPU(int max_strips, StripDataGPU* stripdata, sst_data_t *sst_data_d, sst_data_t **pt_sst_data_d, cudaStream_t stream) {
   int dev = cms::cuda::currentDevice();
@@ -364,6 +355,8 @@ void findClusterGPU(sst_data_t *sst_data_d, sst_data_t *pt_sst_data_d, const SiS
   }
 #endif
 
+  cudaCheck(cudaMemcpyAsync(&(clust_data->nSeedStripsNC), sst_data_d->prefixSeedStripsNCMask+sst_data_d->nStrips-1, sizeof(int), cudaMemcpyDeviceToHost, stream));
+
   findLeftRightBoundaryGPU<<<nblocks, nthreads, 0, stream>>>(pt_sst_data_d, conditions, pt_clust_data_d);
   cudaCheck(cudaGetLastError());
 #ifdef GPU_CHECK
@@ -371,23 +364,16 @@ void findClusterGPU(sst_data_t *sst_data_d, sst_data_t *pt_sst_data_d, const SiS
   cudaCheck(cudaGetLastError());
 #endif
 
-  cudaCheck(cudaMemcpyAsync((void *)(clust_data->clusterLastIndexLeft), clust_data_d->clusterLastIndexLeft, MAX_SEEDSTRIPS*sizeof(int), cudaMemcpyDeviceToHost, stream));
-  cudaCheck(cudaMemcpyAsync((void *)(clust_data->clusterLastIndexRight), clust_data_d->clusterLastIndexRight, MAX_SEEDSTRIPS*sizeof(int), cudaMemcpyDeviceToHost, stream));
-  cudaCheck(cudaMemcpyAsync((void *)(clust_data->clusterDetId), clust_data_d->clusterDetId, MAX_SEEDSTRIPS*sizeof(detId_t), cudaMemcpyDeviceToHost, stream));
-  cudaCheck(cudaMemcpyAsync((void *)(clust_data->firstStrip), clust_data_d->firstStrip, MAX_SEEDSTRIPS*sizeof(stripId_t), cudaMemcpyDeviceToHost, stream));
-
   checkClusterConditionGPU<<<nblocks, nthreads, 0, stream>>>(pt_sst_data_d, conditions, pt_clust_data_d);
   cudaCheck(cudaGetLastError());
+
 #ifdef GPU_CHECK
   cudaDeviceSynchronize();
   cudaCheck(cudaGetLastError());
 #endif
 
-  cudaCheck(cudaMemcpyAsync((void *)(clust_data->clusterADCs), clust_data_d->clusterADCs, MAX_SEEDSTRIPS*kClusterMaxStrips*sizeof(uint8_t), cudaMemcpyDeviceToHost, stream));
-  cudaCheck(cudaMemcpyAsync((void *)(clust_data->trueCluster), clust_data_d->trueCluster, MAX_SEEDSTRIPS*sizeof(bool), cudaMemcpyDeviceToHost, stream));
-  cudaCheck(cudaMemcpyAsync((void *)(clust_data->barycenter), clust_data_d->barycenter, MAX_SEEDSTRIPS*sizeof(float), cudaMemcpyDeviceToHost, stream));
-
 #ifdef GPU_DEBUG
+  cudaCheck(cudaMemcpyAsync(&(sst_data_d->nSeedStripsNC), sst_data_d->prefixSeedStripsNCMask+sst_data_d->nStrips-1, sizeof(int), cudaMemcpyDeviceToHost, stream));
   cudaStreamSynchronize(stream);
 
   auto clusterLastIndexLeft = clust_data->clusterLastIndexLeft;
@@ -397,7 +383,7 @@ void findClusterGPU(sst_data_t *sst_data_d, sst_data_t *pt_sst_data_d, const SiS
   auto detIds = clust_data->clusterDetId;
   //auto stripIds = clust_data->firstStrip;
 
-  auto nSeedStripsNC = sst_data_d->nSeedStripsNC;
+  const int nSeedStripsNC = std::min(MAX_SEEDSTRIPS, sst_data_d->nSeedStripsNC);
   std::cout<<"findClusterGPU nSeedStripsNC="<<nSeedStripsNC<<std::endl;
 
   for (int i=0; i<nSeedStripsNC; i++) {
@@ -444,9 +430,6 @@ void setSeedStripsNCIndexGPU(sst_data_t *sst_data_d, sst_data_t *pt_sst_data_d, 
 
   cub::DeviceScan::ExclusiveSum(sst_data_d->d_temp_storage, sst_data_d->temp_storage_bytes, sst_data_d->seedStripsNCMask, sst_data_d->prefixSeedStripsNCMask, sst_data_d->nStrips, stream);
 
-  setNSeedStripsNCGPU<<<1, 1, 0, stream>>>(pt_sst_data_d);
-  cudaCheck(cudaMemcpyAsync(&(sst_data_d->nSeedStripsNC), &(pt_sst_data_d->nSeedStripsNC), sizeof(int), cudaMemcpyDeviceToHost, stream));
-
   setStripIndexGPU<<<nblocks, nthreads, 0, stream>>>(pt_sst_data_d);
   cudaCheck(cudaGetLastError());
 
@@ -455,14 +438,29 @@ void setSeedStripsNCIndexGPU(sst_data_t *sst_data_d, sst_data_t *pt_sst_data_d, 
   auto cpu_prefix= cms::cuda::make_host_unique<int[]>(nStrips, stream);
   auto cpu_index = cms::cuda::make_host_unique<int[]>(nStrips, stream);
 
+  cudaCheck(cudaMemcpyAsync(&(sst_data_d->nSeedStripsNC), sst_data_d->prefixSeedStripsNCMask+sst_data_d->nStrips-1, sizeof(int), cudaMemcpyDeviceToHost, stream));
   cudaCheck(cudaMemcpyAsync(cpu_mask.get(), sst_data_d->seedStripsNCMask, nStrips*sizeof(int), cudaMemcpyDeviceToHost, stream));
   cudaCheck(cudaMemcpyAsync(cpu_prefix.get(), sst_data_d->prefixSeedStripsNCMask, nStrips*sizeof(int), cudaMemcpyDeviceToHost, stream));
   cudaCheck(cudaMemcpyAsync(cpu_index.get(), sst_data_d->seedStripsNCIndex, nStrips*sizeof(int), cudaMemcpyDeviceToHost, stream));
   cudaCheck(cudaStreamSynchronize(stream));
 
+  const int nSeedStripsNC = std::min(MAX_SEEDSTRIPS, sst_data_d->nSeedStripsNC);
   std::cout<<"nStrips="<<nStrips<<" nSeedStripsNC="<<sst_data_d->nSeedStripsNC<<" temp_storage_bytes="<<sst_data_d->temp_storage_bytes<<std::endl;
   for (int i=0; i<nStrips; i++) {
     std::cout<<" i "<<i<<" mask "<<cpu_mask[i]<<" prefix "<<cpu_prefix[i]<<" index "<<cpu_index[i]<<std::endl;
   }
 #endif
+}
+
+void cpyGPUToCPU(clust_data_t *clust_data, clust_data_t *clust_data_d, cudaStream_t stream) {
+  clust_data->nSeedStripsNC = std::min(clust_data->nSeedStripsNC, MAX_SEEDSTRIPS);
+  auto nSeedStripsNC = clust_data->nSeedStripsNC;
+
+  cudaCheck(cudaMemcpyAsync((void *)(clust_data->clusterLastIndexLeft), clust_data_d->clusterLastIndexLeft, nSeedStripsNC*sizeof(int), cudaMemcpyDeviceToHost, stream));
+  cudaCheck(cudaMemcpyAsync((void *)(clust_data->clusterLastIndexRight), clust_data_d->clusterLastIndexRight, nSeedStripsNC*sizeof(int), cudaMemcpyDeviceToHost, stream));
+  cudaCheck(cudaMemcpyAsync((void *)(clust_data->clusterDetId), clust_data_d->clusterDetId, nSeedStripsNC*sizeof(detId_t), cudaMemcpyDeviceToHost, stream));
+  cudaCheck(cudaMemcpyAsync((void *)(clust_data->firstStrip), clust_data_d->firstStrip, nSeedStripsNC*sizeof(stripId_t), cudaMemcpyDeviceToHost, stream));
+  cudaCheck(cudaMemcpyAsync((void *)(clust_data->clusterADCs), clust_data_d->clusterADCs, nSeedStripsNC*kClusterMaxStrips*sizeof(uint8_t), cudaMemcpyDeviceToHost, stream));
+  cudaCheck(cudaMemcpyAsync((void *)(clust_data->trueCluster), clust_data_d->trueCluster, nSeedStripsNC*sizeof(bool), cudaMemcpyDeviceToHost, stream));
+  cudaCheck(cudaMemcpyAsync((void *)(clust_data->barycenter), clust_data_d->barycenter, nSeedStripsNC*sizeof(float), cudaMemcpyDeviceToHost, stream));
 }

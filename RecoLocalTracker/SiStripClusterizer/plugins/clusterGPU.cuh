@@ -29,6 +29,7 @@ struct clust_data_t {
   stripgpu::stripId_t *firstStrip;
   bool *trueCluster;
   float *barycenter;
+  int nSeedStripsNC;
 };
 
 void allocateSSTDataGPU(int max_strips, StripDataGPU* stripdata, sst_data_t *sst_data_d, sst_data_t **pt_sst_data_d, cudaStream_t stream);
@@ -41,4 +42,6 @@ void freeClustData(clust_data_t *clust_data_t);
 
 void setSeedStripsNCIndexGPU(sst_data_t *sst_data_d, sst_data_t *pt_sst_data_d, const SiStripConditionsGPU *conditions, cudaStream_t stream);
 void findClusterGPU(sst_data_t *sst_data_d, sst_data_t *pt_sst_data_d, const SiStripConditionsGPU *conditions, clust_data_t *clust_data, clust_data_t *clust_data_d, clust_data_t *pt_clust_data_d, cudaStream_t stream);
+
+void cpyGPUToCPU(clust_data_t *clust_data, clust_data_t *clust_data_d, cudaStream_t stream);
 #endif

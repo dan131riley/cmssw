@@ -39,7 +39,8 @@
 #endif
 
 namespace {
-#ifdef DSRDEBUG
+//#define DSRTOYDUMP
+#ifdef DSRTOYDUMP
   std::ofstream datafile("stripdata.bin", std::ios::out | std::ios::binary);
 #endif
   std::unique_ptr<sistrip::FEDBuffer> fillBuffer(int fedId, const FEDRawDataCollection& rawColl) {
@@ -47,7 +48,7 @@ namespace {
 
     // Retrieve FED raw data for given FED
     const FEDRawData& rawData = rawColl.FEDData(fedId);
-#ifdef DSRDEBUG
+#ifdef DSRTOYDUMP
     size_t size = rawData.size();
     datafile.write((char*) &size, sizeof(size));
     datafile.write((char*) &fedId, sizeof(fedId));
@@ -192,7 +193,7 @@ public:
   }
 
   void beginRun(const edm::Run&, const edm::EventSetup& es) override {
-#ifdef DSRDEBUG
+#ifdef DSRTOYDUMP
       struct ChannelConditions {
       ChannelConditions(uint16_t fed, uint32_t det, uint8_t chan, uint16_t pair)
         : fedId_(fed), detId_(det), fedCh_(chan), ipair_(pair) {}
@@ -213,7 +214,7 @@ public:
 #endif
     initialize(es);
 
-#ifdef DSRDEBUG
+#ifdef DSRTOYDUMP
     std::ofstream condfile("stripcond.bin", std::ios::out | std::ios::binary);
 
     for ( auto idet : clusterizer_->allDetIds()) {
@@ -292,7 +293,7 @@ void SiStripClusterizerFromRaw::initialize(const edm::EventSetup& es) {
 void SiStripClusterizerFromRaw::run(const FEDRawDataCollection& rawColl, edmNew::DetSetVector<SiStripCluster>& output) {
   ClusterFiller filler(rawColl, *clusterizer_, *rawAlgos_, doAPVEmulatorCheck_, legacy_, hybridZeroSuppressed_);
 
-#ifdef DSRDEBUG
+#ifdef DSRTOYDUMP
   size_t mark = SIZE_MAX;
   datafile.write((char*)&mark, sizeof(mark));
 #endif
@@ -305,7 +306,7 @@ void SiStripClusterizerFromRaw::run(const FEDRawDataCollection& rawColl, edmNew:
     if (record.empty())
       record.abort();
 
-#ifdef DSRDEBUG
+#ifdef DSRTOYDUMP
     static bool first = true;
     if (first || idet == 369120277) {
       first = false;

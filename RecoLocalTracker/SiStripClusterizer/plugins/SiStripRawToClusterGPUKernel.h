@@ -27,14 +27,23 @@ class clust_data_t;
 namespace stripgpu {
   class SiStripRawToClusterGPUKernel {
   public:
+    SiStripRawToClusterGPUKernel()
+      : fedIndex(stripgpu::kFedCount, stripgpu::invFed)
+    {
+      fedRawDataOffsets.reserve(stripgpu::kFedCount);
+    }
     void makeAsync(const std::vector<const FEDRawData*>& rawdata,
                    const std::vector<std::unique_ptr<sistrip::FEDBuffer>>& buffers,
                    const SiStripConditionsGPUWrapper* conditionswrapper,
                    cudaStream_t stream);
+    void copyAsync(cudaStream_t stream);
     std::unique_ptr<edmNew::DetSetVector<SiStripCluster>> getResults(cudaStream_t stream);
 
   private:
     void reset();
+
+    std::vector<stripgpu::fedId_t> fedIndex;
+    std::vector<size_t> fedRawDataOffsets;
 
     cms::cuda::device::unique_ptr<uint8_t[]> fedRawDataGPU;
     std::unique_ptr<StripDataGPU> stripdata;
