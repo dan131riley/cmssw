@@ -23,7 +23,7 @@ struct sst_data_t {
 };
 
 struct clust_data_t {
-  int *clusterLastIndexLeft, *clusterLastIndexRight;
+  int *clusterIndexLeft, *clusterSize;
   uint8_t *clusterADCs;
   stripgpu::detId_t *clusterDetId;
   stripgpu::stripId_t *firstStrip;

@@ -312,10 +312,9 @@ void SiStripClusterizerFromRaw::run(const FEDRawDataCollection& rawColl, edmNew:
     if (record.empty())
       record.abort();
 
+//#define DSRTOYDUMP
 #ifdef DSRTOYDUMP
-    static bool first = true;
-    if (first || idet == 369120277) {
-      first = false;
+    if (idet == 369120277) {
       std::cout << "Printing clusters for detid " << idet << std::endl;
       for (const auto& cluster : record) {
         std::cout << "Cluster " << cluster.firstStrip() << ": ";

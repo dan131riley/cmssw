@@ -24,7 +24,8 @@ static void unpackChannels(const ChanLocStruct* chanlocs, const SiStripCondition
     const auto fedid = chanlocs->fedID(chan);
     const auto fedch = chanlocs->fedCh(chan);
     const auto detid = conditions->detID(fedid, fedch);
-    const auto ipoff = kStripsPerChannel*conditions->iPair(fedid, fedch);
+    const auto ipair = conditions->iPair(fedid, fedch);
+    const auto ipoff = kStripsPerChannel*ipair;
 
     const auto data = chanlocs->input(chan);
     const auto len = chanlocs->length(chan);
@@ -32,18 +33,19 @@ static void unpackChannels(const ChanLocStruct* chanlocs, const SiStripCondition
     if (data != nullptr && len > 0) {
       auto aoff = chanlocs->offset(chan);
       auto choff = chanlocs->inoff(chan);
-      const auto end = aoff + len;
+      const auto end = choff + len;
 
-      while (aoff < end) {
-        stripId[aoff] = stripgpu::invStrip;
-        detId[aoff] = stripgpu::invDet;
-        alldata[aoff] = data[(choff++)^7];
-        auto stripIndex = alldata[aoff++] + ipoff;
- 
-        stripId[aoff] = stripgpu::invStrip;
-        detId[aoff] = detid;
-        alldata[aoff] = data[(choff++)^7];
-        const auto groupLength = alldata[aoff++];
+      while (choff < end) {
+        auto stripIndex = data[(choff++)^7] + ipoff;
+        const auto groupLength = data[(choff++)^7];
+
+        for (auto i = 0; i < 2; ++i) {
+          detId[aoff] = detid;
+          fedId[aoff] = fedid;
+          fedCh[aoff] = fedch;
+          stripId[aoff] = stripgpu::invStrip;
+          alldata[aoff++] = 0;
+        }
 
         for (auto i = 0; i < groupLength; ++i) {
           detId[aoff] = detid;
