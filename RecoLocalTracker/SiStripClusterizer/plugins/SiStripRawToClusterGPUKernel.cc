@@ -57,21 +57,23 @@ namespace stripgpu {
     // mapping out where the data are
     for(size_t i = 0; i < detmap.size(); ++i) {
       const auto& detp = detmap[i];
+      const auto fedId = detp.fedID();
+      const auto fedCh = detp.fedCh();
+      const auto fedi = fedIndex[stripgpu::fedIndex(fedId)];
 
-      auto fedId = detp.fedID();
-      auto fedi = fedIndex[stripgpu::fedIndex(fedId)];
       if (fedi != invFed) {
         const auto buffer = buffers[fedId].get();
         const auto& channel = buffer->channel(detp.fedCh());
 
         if (channel.length() >= headerlen) {
-          chanlocs->setChannelLoc(i, channel.data(), channel.offset()+headerlen, offset, channel.length()-headerlen,
-                                 detp.fedID(), detp.fedCh());
+          auto len = channel.length() - headerlen;
+          chanlocs->setChannelLoc(i, channel.data(), channel.offset()+headerlen, offset, len,
+                                 fedId, fedCh);
           inputGPU[i] = fedRawDataGPU.get() + fedRawDataOffsets[fedi] + (channel.data() - rawdata[fedId]->data());
-          offset += channel.length()-headerlen;
+          offset += len;
         } else {
           chanlocs->setChannelLoc(i, channel.data(), channel.offset(), offset, channel.length(),
-                                 detp.fedID(), detp.fedCh());
+                                 fedId, fedCh);
           inputGPU[i] = fedRawDataGPU.get() + fedRawDataOffsets[fedi] + (channel.data() - rawdata[fedId]->data());
           offset += channel.length();
           assert(channel.length() == 0);
@@ -101,25 +103,30 @@ namespace stripgpu {
 
     unpackChannelsGPU(chanlocsGPU.get(), condGPU, stripdata.get(), stream);
 
-    //#define VERIFY
+//#define VERIFY
 #ifdef VERIFY
     auto outdata = cms::cuda::make_host_unique<uint8_t[]>(max_strips, stream);
-    auto stripid = cms::cuda::make_host_unique<stripgpu::stripId_t[]>(max_strips, stream);
-    cms::cuda::copyAsync(outdata, stripdata.alldataGPU_, max_strips, stream);
-    cms::cuda::copyAsync(stripid, stripdata.stripIdGPU_, max_strips, stream);
+    cms::cuda::copyAsync(outdata, stripdata->alldataGPU_, max_strips, stream);
     cudaCheck(cudaStreamSynchronize(stream));
 
     for(size_t i = 0; i < chanlocs->size(); ++i) {
       const auto data = chanlocs->input(i);
+      const auto len = chanlocs->length(i);
 
-      if (data != nullptr) {
+      if (data != nullptr && len > 0) {
         auto aoff = chanlocs->offset(i);
         auto choff = chanlocs->inoff(i);
+        const auto end = choff + len;
 
-        for (auto k = 0; k < chanlocs->length(i); ++k) {
-          assert(data[choff^7] == outdata[aoff]);
-          aoff++; choff++;
-          std::cout << "strip id " << stripid[aoff] << " adc " << (uint32_t) outdata[aoff] << std::endl;
+        while (choff < end) {
+          const auto stripIndex = data[choff++^7];
+          const auto groupLength = data[choff++^7];
+          aoff += 2;
+          for (auto k = 0; k < groupLength; ++k, ++choff, ++aoff) {
+            if (data[choff^7] != outdata[aoff]) {
+              std::cout << "i:k " << i << ":" << k << " " << (uint32_t) data[choff^7] << " != " << (uint32_t) outdata[aoff] << std::endl;
+            }
+          }
         }
       }
     }
@@ -151,8 +158,7 @@ namespace stripgpu {
     std::unique_ptr<out_t> output(new edmNew::DetSetVector<SiStripCluster>());
 
     const int nSeedStripsNC = clust_data->nSeedStripsNC;
-    const auto clusterLastIndexLeft = clust_data->clusterLastIndexLeft;
-    const auto clusterLastIndexRight = clust_data->clusterLastIndexRight;
+    const auto clusterSize = clust_data->clusterSize;
     const auto ADCs = clust_data->clusterADCs;
     const auto detIDs = clust_data->clusterDetId;
     const auto stripIDs = clust_data->firstStrip;
@@ -168,10 +174,8 @@ namespace stripgpu {
       out_t::FastFiller record(*output, detid);
 
       while (i < nSeedStripsNC && detIDs[i] == detid) {
-        if (trueCluster[i]){
-          const auto left=clusterLastIndexLeft[i];
-          const auto right=clusterLastIndexRight[i];
-          const auto size=std::min(right-left+1, kClusterMaxStrips);
+        if (trueCluster[i]) {
+          const auto size = std::min(clusterSize[i], kClusterMaxStrips);
           const auto firstStrip = stripIDs[i];
 
           adcs.clear();
