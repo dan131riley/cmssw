@@ -28,6 +28,8 @@
 #include "HeterogeneousCore/CUDACore/interface/ScopedContext.h"
 #include "HeterogeneousCore/CUDAServices/interface/CUDAService.h"
 
+#include "ChanLocsGPU.h"
+
 //#include <sstream>
 #include <memory>
 #include <mutex>
@@ -80,15 +82,10 @@ public:
         raw(1024),
         cabling_(nullptr),
         clusterizer_(StripClusterizerAlgorithmFactory::create(conf.getParameter<edm::ParameterSet>("Clusterizer"))),
-        rawAlgos_(SiStripRawProcessingFactory::create(conf.getParameter<edm::ParameterSet>("Algorithms"))),
-        doAPVEmulatorCheck_(conf.existsAs<bool>("DoAPVEmulatorCheck") ? conf.getParameter<bool>("DoAPVEmulatorCheck")
-                                                                      : true),
-        legacy_(conf.existsAs<bool>("LegacyUnpacker") ? conf.getParameter<bool>("LegacyUnpacker") : false),
-        hybridZeroSuppressed_(conf.getParameter<bool>("HybridZeroSuppressed")) {
-    productToken_ = consumes<FEDRawDataCollection>(conf.getParameter<edm::InputTag>("ProductLabel"));
-    produces<edmNew::DetSetVector<SiStripCluster> >();
+        legacy_(conf.existsAs<bool>("LegacyUnpacker") ? conf.getParameter<bool>("LegacyUnpacker") : false) {
+    inputToken_ = consumes<FEDRawDataCollection>(conf.getParameter<edm::InputTag>("ProductLabel"));
+    outputToken_ = produces<cms::cuda::Product<SiStripClustersCUDA>>();
     assert(clusterizer_.get());
-    assert(rawAlgos_.get());
   }
 
   void beginRun(const edm::Run&, const edm::EventSetup& es) override { 
@@ -104,17 +101,13 @@ public:
 
     // get raw data
     edm::Handle<FEDRawDataCollection> rawData;
-    ev.getByToken(productToken_, rawData);
+    ev.getByToken(inputToken_, rawData);
 
     run(*rawData);
 
     // Queues asynchronous data transfers and kernels to the CUDA stream
     // returned by cms::cuda::ScopedContextAcquire::stream()
     gpuAlgo_.makeAsync(raw, buffers, conditionsWrapper.get(), ctx.stream());
-
-    ctx.pushNextTask([this](cms::cuda::ScopedContextTask ctx) {
-      copyToCPU(ctx);
-    });
 
     // Destructor of ctx queues a callback to the CUDA stream notifying
     // waitingTaskHolder when the queued asynchronous work has finished
@@ -123,9 +116,12 @@ public:
   void produce(edm::Event& ev, const edm::EventSetup& es) override {
     cms::cuda::ScopedContextProduce ctx{ctxState_};
 
-    auto output = gpuAlgo_.getResults(ctx.stream());
-
-    ev.put(std::move(output));
+    // Now getResult() returns data in GPU memory that is passed to the
+    // constructor of OutputData. cms::cuda::ScopedContextProduce::emplace() wraps the
+    // OutputData to cms::cuda::Product<OutputData>. cms::cuda::Product<T> stores also
+    // the current device and the CUDA stream since those will be needed
+    // in the consumer side.
+    ctx.emplace(ev, outputToken_, gpuAlgo_.getResults(ctx.stream()));
 
     for (auto& buf : buffers)
       buf.reset(nullptr);
@@ -135,9 +131,6 @@ private:
   void initialize(const edm::EventSetup& es);
   void run(const FEDRawDataCollection& rawColl);
   void fill(uint32_t idet, const FEDRawDataCollection& rawColl);
-  void copyToCPU(cms::cuda::ScopedContextTask& ctx) {
-    gpuAlgo_.copyAsync(ctx.stream());
-  }
 
 private:
   std::vector<std::unique_ptr<sistrip::FEDBuffer>> buffers;
@@ -147,18 +140,14 @@ private:
   stripgpu::SiStripRawToClusterGPUKernel gpuAlgo_;
   std::unique_ptr<SiStripConditionsGPUWrapper> conditionsWrapper;
 
-  edm::EDGetTokenT<FEDRawDataCollection> productToken_;
+  edm::EDGetTokenT<FEDRawDataCollection> inputToken_;
+  edm::EDPutTokenT<cms::cuda::Product<SiStripClustersCUDA>> outputToken_;
 
   SiStripDetCabling const* cabling_;
 
   std::unique_ptr<StripClusterizerAlgorithm> clusterizer_;
-  std::unique_ptr<SiStripRawProcessingAlgorithms> rawAlgos_;
-
-  // March 2012: add flag for disabling APVe check in configuration
-  bool doAPVEmulatorCheck_;
 
   bool legacy_;
-  bool hybridZeroSuppressed_;
 };
 
 #include "FWCore/Framework/interface/MakerMacros.h"
@@ -167,7 +156,6 @@ DEFINE_FWK_MODULE(SiStripClusterizerFromRawGPU);
 void SiStripClusterizerFromRawGPU::initialize(const edm::EventSetup& es) {
   (*clusterizer_).initialize(es);
   cabling_ = (*clusterizer_).cabling();
-  (*rawAlgos_).initialize(es);
 }
 
 void SiStripClusterizerFromRawGPU::run(const FEDRawDataCollection& rawColl) {

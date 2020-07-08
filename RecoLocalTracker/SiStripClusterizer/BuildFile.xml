@@ -10,6 +10,7 @@
 <use   name="CalibTracker/Records"/>
 <use   name="EventFilter/SiStripRawToDigi"/>
 <use   name="HeterogeneousCore/CUDACore"/>
+<use   name="CUDADataFormats/SiStripCluster"/>
 <use   name="cuda"/>
 <export>
   <lib name="1"/>

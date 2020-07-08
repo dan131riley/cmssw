@@ -2,11 +2,11 @@
 #define RecoLocalTracker_SiStripClusterizer_plugins_SiStripRawToClusterGPUKernel_h
 
 //#include "EventFilter/SiStripRawToDigi/interface/SiStripFEDBuffer.h"
-#include "DataFormats/SiStripCluster/interface/SiStripCluster.h"
-#include "DataFormats/Common/interface/DetSetVectorNew.h"
+//#include "DataFormats/SiStripCluster/interface/SiStripCluster.h"
+//#include "DataFormats/Common/interface/DetSetVectorNew.h"
 
 #include "HeterogeneousCore/CUDAUtilities/interface/device_unique_ptr.h"
-#include "ChanLocsGPU.h"
+//#include "ChanLocsGPU.h"
 #include "clusterGPU.cuh"
 
 #include <cuda_runtime.h>
@@ -15,16 +15,28 @@
 #include <memory>
 
 class SiStripConditionsGPUWrapper;
+class ChannelLocs;
+class ChannelLocsGPU;
 class FEDRawData;
 namespace sistrip {
   class FEDBuffer;
 }
 
-class StripDataGPU;
 class sst_data_t;
 class clust_data_t;
 
 namespace stripgpu {
+  class StripDataGPU {
+  public:
+    StripDataGPU(size_t size, cudaStream_t stream);
+
+    cms::cuda::device::unique_ptr<uint8_t[]> alldataGPU_;
+    cms::cuda::device::unique_ptr<stripgpu::detId_t[]> detIdGPU_;
+    cms::cuda::device::unique_ptr<stripgpu::stripId_t[]> stripIdGPU_;
+    cms::cuda::device::unique_ptr<stripgpu::fedId_t[]> fedIdGPU_;
+    cms::cuda::device::unique_ptr<stripgpu::fedCh_t[]> fedChGPU_;
+  };
+
   class SiStripRawToClusterGPUKernel {
   public:
     SiStripRawToClusterGPUKernel()
@@ -37,10 +49,16 @@ namespace stripgpu {
                    const SiStripConditionsGPUWrapper* conditionswrapper,
                    cudaStream_t stream);
     void copyAsync(cudaStream_t stream);
-    std::unique_ptr<edmNew::DetSetVector<SiStripCluster>> getResults(cudaStream_t stream);
+    SiStripClustersCUDA getResults(cudaStream_t stream);
 
   private:
     void reset();
+    void unpackChannelsGPU(const SiStripConditionsGPU* conditions, cudaStream_t stream);
+    void allocateSSTDataGPU(int max_strips, cudaStream_t stream);
+    void freeSSTDataGPU(cudaStream_t stream);
+
+    void setSeedStripsNCIndexGPU(const SiStripConditionsGPU *conditions, cudaStream_t stream);
+    void findClusterGPU(const SiStripConditionsGPU *conditions, cudaStream_t stream);
 
     std::vector<stripgpu::fedId_t> fedIndex;
     std::vector<size_t> fedRawDataOffsets;
@@ -54,9 +72,10 @@ namespace stripgpu {
     cms::cuda::host::unique_ptr<sst_data_t> sst_data_d;
     sst_data_t *pt_sst_data_d;
 
-    std::unique_ptr<clust_data_t> clust_data_d;
-    std::unique_ptr<clust_data_t> clust_data;
-    clust_data_t *pt_clust_data_d;
+    SiStripClustersCUDA clusters_d;
+    //std::unique_ptr<clust_data_t> clust_data_d;
+    //std::unique_ptr<clust_data_t> clust_data;
+    //clust_data_t *pt_clust_data_d;
   };
 }
 #endif
