@@ -2,20 +2,9 @@
 #define RecoLocalTracker_SiStripClusterizer_SiStripConditionsGPU_h
 
 #include "HeterogeneousCore/CUDAUtilities/interface/cudaCompat.h"
-
-#include <limits>
+#include "CUDADataFormats/SiStripCluster/interface/GPUtypes.h"
 
 namespace stripgpu {
-  using detId_t = uint32_t;
-  using fedId_t = uint16_t;
-  using fedCh_t = uint8_t;
-  using APVPair_t = uint16_t;
-  using stripId_t = uint16_t;
-
-  static constexpr detId_t invDet = std::numeric_limits<detId_t>::max();
-  static constexpr fedId_t invFed = std::numeric_limits<fedId_t>::max();
-  static constexpr stripId_t invStrip = std::numeric_limits<stripId_t>::max();
-
   static constexpr int kStripsPerChannel = 256;
   static constexpr int kFedFirst = 50;
   static constexpr int kFedLast = 489;
@@ -65,9 +54,9 @@ struct SiStripConditionsGPU {
   __host__ __device__ bool bad(stripgpu::fedId_t fed, stripgpu::fedCh_t channel, stripgpu::stripId_t strip) const
   { return bad_[stripgpu::fedIndex(fed)][stripgpu::stripIndex(channel, strip)]; }
 
-  alignas(128) float noise_[stripgpu::kFedCount][stripgpu ::kStripsPerFed];
-  alignas(128) float gain_[stripgpu::kFedCount][stripgpu ::kStripsPerFed];
-  alignas(128) bool bad_[stripgpu::kFedCount][stripgpu ::kStripsPerFed];
+  alignas(128) float noise_[stripgpu::kFedCount][stripgpu::kStripsPerFed];
+  alignas(128) float gain_[stripgpu::kFedCount][stripgpu::kStripsPerFed];
+  alignas(128) bool bad_[stripgpu::kFedCount][stripgpu::kStripsPerFed];
   alignas(128) float invthick_[stripgpu::kFedCount][stripgpu::kChannelCount];
   alignas(128) stripgpu::detId_t detID_[stripgpu::kFedCount][stripgpu::kChannelCount];
   alignas(128) stripgpu::APVPair_t iPair_[stripgpu::kFedCount][stripgpu::kChannelCount];
