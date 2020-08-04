@@ -9,16 +9,16 @@
 namespace stripgpu {
   class StripDataGPU;
 }
+struct ChanLocStruct;
 
 static constexpr auto MAX_SEEDSTRIPS = 200000;
 static constexpr uint32_t kClusterMaxStrips = 16;
 
 struct sst_data_t {
-  stripgpu::detId_t *detId;
+  const ChanLocStruct* chanlocs;
+  uint16_t* channel;
   stripgpu::stripId_t *stripId;
   uint8_t *adc;
-  stripgpu::fedId_t *fedId;
-  stripgpu::fedCh_t *fedCh;
   int *seedStripsNCIndex, *seedStripsMask, *seedStripsNCMask, *prefixSeedStripsNCMask;
   void *d_temp_storage;
   size_t temp_storage_bytes;

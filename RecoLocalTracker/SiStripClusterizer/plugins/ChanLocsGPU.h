@@ -25,9 +25,10 @@ public:
       length_(std::move(arg.length_)),
       fedID_(std::move(arg.fedID_)),
       fedCh_(std::move(arg.fedCh_)),
+      detID_(std::move(arg.detID_)),
       size_(arg.size_) {}
 
-  void setChannelLoc(uint32_t index, const uint8_t* input, size_t inoff, size_t offset, uint16_t length, stripgpu::fedId_t fedID, stripgpu::fedCh_t fedCh)
+  void setChannelLoc(uint32_t index, const uint8_t* input, size_t inoff, size_t offset, uint16_t length, stripgpu::fedId_t fedID, stripgpu::fedCh_t fedCh, stripgpu::detId_t detID)
   {
     input_[index] = input;
     inoff_[index] = inoff;
@@ -35,6 +36,7 @@ public:
     length_[index] = length;
     fedID_[index] = fedID;
     fedCh_[index] = fedCh;
+    detID_[index] = detID;
   }
 
   __host__ __device__ size_t size() const { return size_; }
@@ -45,6 +47,7 @@ public:
   __host__ __device__ uint16_t length(uint32_t index) const { return length_[index]; }
   __host__ __device__ stripgpu::fedId_t fedID(uint32_t index) const { return fedID_[index]; }
   __host__ __device__ stripgpu::fedCh_t fedCh(uint32_t index) const { return fedCh_[index]; }
+  __host__ __device__ stripgpu::detId_t detID(uint32_t index) const { return detID_[index]; }
 
   const uint8_t** input() const { return input_.get(); }
   size_t* inoff() const { return inoff_.get(); }
@@ -52,6 +55,7 @@ public:
   uint16_t* length() const { return length_.get(); }
   stripgpu::fedId_t* fedID() const { return fedID_.get(); }
   stripgpu::fedCh_t* fedCh() const { return fedCh_.get(); }
+  stripgpu::detId_t* detID() const { return detID_.get(); }
 
 protected:
   T<const uint8_t*[]> input_; // input raw data for channel
@@ -60,6 +64,7 @@ protected:
   T<uint16_t[]> length_;      // length of channel data
   T<stripgpu::fedId_t[]> fedID_;
   T<stripgpu::fedCh_t[]> fedCh_;
+  T<stripgpu::detId_t[]> detID_;
   size_t size_ = 0;
 };
 
@@ -82,6 +87,7 @@ struct ChanLocStruct {
   __host__ __device__ uint16_t length(uint32_t index) const { return length_[index]; }
   __host__ __device__ stripgpu::fedId_t fedID(uint32_t index) const { return fedID_[index]; }
   __host__ __device__ stripgpu::fedCh_t fedCh(uint32_t index) const { return fedCh_[index]; }
+  __host__ __device__ stripgpu::detId_t detID(uint32_t index) const { return detID_[index]; }
 
 
   const uint8_t** input_; // input raw data for channel
@@ -90,6 +96,7 @@ struct ChanLocStruct {
   uint16_t* length_;      // length of channel data
   stripgpu::fedId_t* fedID_;
   stripgpu::fedCh_t* fedCh_;
+  stripgpu::detId_t* detID_;
   size_t size_;
 };
 

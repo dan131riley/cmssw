@@ -16,6 +16,7 @@ ChannelLocs::ChannelLocs(size_t size, cudaStream_t stream)
     length_ = cms::cuda::make_host_unique<uint16_t[]>(size, stream);
     fedID_ = cms::cuda::make_host_unique<stripgpu::fedId_t[]>(size, stream);
     fedCh_ = cms::cuda::make_host_unique<stripgpu::fedCh_t[]>(size, stream);
+    detID_ = cms::cuda::make_host_unique<stripgpu::detId_t[]>(size, stream);
   }
 }
 
@@ -29,6 +30,7 @@ void ChanLocStruct::Fill(const ChannelLocsGPU& c)
   length_ = c.length();
   fedID_ = c.fedID();
   fedCh_ = c.fedCh();
+  detID_ = c.detID();
   size_ = c.size();
 }
 
@@ -42,6 +44,7 @@ ChannelLocsGPU::ChannelLocsGPU(size_t size, cudaStream_t stream)
     length_ = cms::cuda::make_device_unique<uint16_t[]>(size, stream);
     fedID_ = cms::cuda::make_device_unique<stripgpu::fedId_t[]>(size, stream);
     fedCh_ = cms::cuda::make_device_unique<stripgpu::fedCh_t[]>(size, stream);
+    detID_ = cms::cuda::make_device_unique<stripgpu::detId_t[]>(size, stream);
 
     ChanLocStruct chanstruct;
     chanstruct.Fill(*this);
@@ -59,6 +62,7 @@ void ChannelLocsGPU::setvals(const ChannelLocs* c, const std::vector<uint8_t*>& 
   cms::cuda::copyAsync(length_, c->length_, size_, stream);
   cms::cuda::copyAsync(fedID_, c->fedID_, size_, stream);
   cms::cuda::copyAsync(fedCh_, c->fedCh_, size_, stream);
+  cms::cuda::copyAsync(detID_, c->detID_, size_, stream);
 }
 
 ChannelLocsGPU::~ChannelLocsGPU()
