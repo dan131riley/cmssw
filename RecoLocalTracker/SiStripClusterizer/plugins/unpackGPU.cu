@@ -12,8 +12,7 @@
 namespace stripgpu {
   __global__
   static void unpackChannels(const ChanLocStruct* chanlocs, const SiStripConditionsGPU* conditions,
-                             uint8_t* alldata, stripgpu::detId_t* detId, stripgpu::stripId_t* stripId,
-                             stripgpu::fedId_t* fedId, stripgpu::fedCh_t* fedCh)
+                             uint8_t* alldata, uint16_t* channel, stripgpu::stripId_t* stripId)
   {
     const int tid = threadIdx.x;
     const int bid = blockIdx.x;
@@ -23,7 +22,6 @@ namespace stripgpu {
     if (chan < chanlocs->size()) {
       const auto fedid = chanlocs->fedID(chan);
       const auto fedch = chanlocs->fedCh(chan);
-      const auto detid = conditions->detID(fedid, fedch);
       const auto ipair = conditions->iPair(fedid, fedch);
       const auto ipoff = kStripsPerChannel*ipair;
 
@@ -40,18 +38,13 @@ namespace stripgpu {
           const auto groupLength = data[(choff++)^7];
 
           for (auto i = 0; i < 2; ++i) {
-            detId[aoff] = detid;
-            fedId[aoff] = fedid;
-            fedCh[aoff] = fedch;
             stripId[aoff] = stripgpu::invStrip;
             alldata[aoff++] = 0;
           }
 
           for (auto i = 0; i < groupLength; ++i) {
-            detId[aoff] = detid;
-            fedId[aoff] = fedid;
-            fedCh[aoff] = fedch;
             stripId[aoff] = stripIndex++;
+            channel[aoff] = chan;
             alldata[aoff++] = data[(choff++)^7];
           }
         }
@@ -62,23 +55,19 @@ namespace stripgpu {
   StripDataGPU::StripDataGPU(size_t size, cudaStream_t stream)
   {
     alldataGPU_ = cms::cuda::make_device_unique<uint8_t[]>(size, stream);
-    detIdGPU_ = cms::cuda::make_device_unique<stripgpu::detId_t[]>(size, stream);
+    channelGPU_ = cms::cuda::make_device_unique<uint16_t[]>(size, stream);
     stripIdGPU_ = cms::cuda::make_device_unique<stripgpu::stripId_t[]>(size, stream);
-    fedIdGPU_ = cms::cuda::make_device_unique<stripgpu::fedId_t[]>(size, stream);
-    fedChGPU_ = cms::cuda::make_device_unique<stripgpu::fedCh_t[]>(size, stream);
   }
 
   void SiStripRawToClusterGPUKernel::unpackChannelsGPU(const SiStripConditionsGPU* conditions, cudaStream_t stream)
   {
     constexpr int nthreads = 128;
-    const auto channels = chanlocsGPU->size();
+    const auto channels = chanlocsGPU_->size();
     const auto nblocks = (channels + nthreads - 1)/nthreads;
   
-    unpackChannels<<<nblocks, nthreads, 0, stream>>>(chanlocsGPU->chanLocStruct(), conditions,
-                                                     stripdata->alldataGPU_.get(),
-                                                     stripdata->detIdGPU_.get(),
-                                                     stripdata->stripIdGPU_.get(),
-                                                     stripdata->fedIdGPU_.get(),
-                                                     stripdata->fedChGPU_.get());
+    unpackChannels<<<nblocks, nthreads, 0, stream>>>(chanlocsGPU_->chanLocStruct(), conditions,
+                                                     stripdata_->alldataGPU_.get(),
+                                                     stripdata_->channelGPU_.get(),
+                                                     stripdata_->stripIdGPU_.get());
   }
 }

@@ -31,18 +31,16 @@ namespace stripgpu {
     StripDataGPU(size_t size, cudaStream_t stream);
 
     cms::cuda::device::unique_ptr<uint8_t[]> alldataGPU_;
-    cms::cuda::device::unique_ptr<stripgpu::detId_t[]> detIdGPU_;
+    cms::cuda::device::unique_ptr<uint16_t[]> channelGPU_;
     cms::cuda::device::unique_ptr<stripgpu::stripId_t[]> stripIdGPU_;
-    cms::cuda::device::unique_ptr<stripgpu::fedId_t[]> fedIdGPU_;
-    cms::cuda::device::unique_ptr<stripgpu::fedCh_t[]> fedChGPU_;
   };
 
   class SiStripRawToClusterGPUKernel {
   public:
     SiStripRawToClusterGPUKernel()
-      : fedIndex(stripgpu::kFedCount, stripgpu::invFed)
+      : fedIndex_(stripgpu::kFedCount, stripgpu::invFed)
     {
-      fedRawDataOffsets.reserve(stripgpu::kFedCount);
+      fedRawDataOffsets_.reserve(stripgpu::kFedCount);
     }
     void makeAsync(const std::vector<const FEDRawData*>& rawdata,
                    const std::vector<std::unique_ptr<sistrip::FEDBuffer>>& buffers,
@@ -60,19 +58,19 @@ namespace stripgpu {
     void setSeedStripsNCIndexGPU(const SiStripConditionsGPU *conditions, cudaStream_t stream);
     void findClusterGPU(const SiStripConditionsGPU *conditions, cudaStream_t stream);
 
-    std::vector<stripgpu::fedId_t> fedIndex;
-    std::vector<size_t> fedRawDataOffsets;
+    std::vector<stripgpu::fedId_t> fedIndex_;
+    std::vector<size_t> fedRawDataOffsets_;
 
-    cms::cuda::device::unique_ptr<uint8_t[]> fedRawDataGPU;
-    std::unique_ptr<StripDataGPU> stripdata;
+    cms::cuda::device::unique_ptr<uint8_t[]> fedRawDataGPU_;
+    std::unique_ptr<StripDataGPU> stripdata_;
 
-    std::unique_ptr<ChannelLocs> chanlocs;
-    std::unique_ptr<ChannelLocsGPU> chanlocsGPU;
+    std::unique_ptr<ChannelLocs> chanlocs_;
+    std::unique_ptr<ChannelLocsGPU> chanlocsGPU_;
 
-    cms::cuda::host::unique_ptr<sst_data_t> sst_data_d;
-    sst_data_t *pt_sst_data_d;
+    cms::cuda::host::unique_ptr<sst_data_t> sst_data_d_;
+    sst_data_t *pt_sst_data_d_;
 
-    SiStripClustersCUDA clusters_d;
+    SiStripClustersCUDA clusters_d_;
     //std::unique_ptr<clust_data_t> clust_data_d;
     //std::unique_ptr<clust_data_t> clust_data;
     //clust_data_t *pt_clust_data_d;
