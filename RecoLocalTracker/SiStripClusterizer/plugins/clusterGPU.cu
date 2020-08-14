@@ -8,6 +8,8 @@
 #include "HeterogeneousCore/CUDAUtilities/interface/host_unique_ptr.h"
 #include "HeterogeneousCore/CUDAUtilities/interface/device_unique_ptr.h"
 
+#include "HeterogeneousCore/CUDAUtilities/interface/copyAsync.h"
+
 #include "ChanLocsGPU.h"
 #include "SiStripRawToClusterGPUKernel.h"
 #include "clusterGPU.cuh"
@@ -298,33 +300,21 @@ namespace stripgpu {
   }
 
   void SiStripRawToClusterGPUKernel::allocateSSTDataGPU(int max_strips, cudaStream_t stream) {
-    int dev = cms::cuda::currentDevice();
-    pt_sst_data_d_ = (sst_data_t *)cms::cuda::allocate_device(dev, sizeof(sst_data_t), stream);
+    stripdata_->seedStripsMask_ = cms::cuda::make_device_unique<int[]>(2*max_strips, stream);
+    stripdata_->prefixSeedStripsNCMask_ = cms::cuda::make_device_unique<int[]>(2*max_strips, stream);
+
     sst_data_d_->chanlocs = chanlocsGPU_->chanLocStruct();
     sst_data_d_->stripId = stripdata_->stripIdGPU_.get();
     sst_data_d_->channel = stripdata_->channelGPU_.get();
     sst_data_d_->adc = stripdata_->alldataGPU_.get();
-    sst_data_d_->seedStripsMask = (int *)cms::cuda::allocate_device(dev, 2*max_strips*sizeof(int), stream);
-    sst_data_d_->prefixSeedStripsNCMask = (int *)cms::cuda::allocate_device(dev, 2*max_strips*sizeof(int), stream);
+    sst_data_d_->seedStripsMask = stripdata_->seedStripsMask_.get();
+    sst_data_d_->prefixSeedStripsNCMask = stripdata_->prefixSeedStripsNCMask_.get();
 
     sst_data_d_->seedStripsNCMask = sst_data_d_->seedStripsMask + max_strips;
     sst_data_d_->seedStripsNCIndex = sst_data_d_->prefixSeedStripsNCMask + max_strips;
-    sst_data_d_->d_temp_storage = nullptr;
-    sst_data_d_->temp_storage_bytes = 0;
-    cub::DeviceScan::ExclusiveSum(sst_data_d_->d_temp_storage, sst_data_d_->temp_storage_bytes, sst_data_d_->seedStripsNCMask, sst_data_d_->prefixSeedStripsNCMask, sst_data_d_->nStrips);
-#ifdef GPU_DEBUG
-    std::cout<<"temp_storage_bytes="<<sst_data_d_->temp_storage_bytes<<std::endl;
-#endif
 
-    sst_data_d_->d_temp_storage = cms::cuda::allocate_device(dev, sst_data_d_->temp_storage_bytes, stream);
-    cudaCheck(cudaMemcpyAsync(pt_sst_data_d_, sst_data_d_.get(), sizeof(sst_data_t), cudaMemcpyHostToDevice, stream));
-  }
-
-  void SiStripRawToClusterGPUKernel::freeSSTDataGPU(cudaStream_t stream) {
-    int dev = cms::cuda::currentDevice();
-    cms::cuda::free_device(dev, pt_sst_data_d_);
-    cms::cuda::free_device(dev, sst_data_d_->seedStripsMask);
-    cms::cuda::free_device(dev, sst_data_d_->prefixSeedStripsNCMask);
+    pt_sst_data_d_ = cms::cuda::make_device_unique<sst_data_t>(stream);
+    cms::cuda::copyAsync(pt_sst_data_d_, sst_data_d_, stream);
   }
 
   void SiStripRawToClusterGPUKernel::findClusterGPU(const SiStripConditionsGPU *conditions, cudaStream_t stream) {
@@ -351,14 +341,14 @@ namespace stripgpu {
 
     cudaCheck(cudaMemcpyAsync(&(clusters_d_.nClusters_h), sst_data_d_->prefixSeedStripsNCMask+sst_data_d_->nStrips-1, sizeof(int), cudaMemcpyDeviceToHost, stream));
     auto clust_data_d = clusters_d_.view();
-    findLeftRightBoundaryGPU<<<nblocks, nthreads, 0, stream>>>(pt_sst_data_d_, conditions, clust_data_d);
+    findLeftRightBoundaryGPU<<<nblocks, nthreads, 0, stream>>>(pt_sst_data_d_.get(), conditions, clust_data_d);
     cudaCheck(cudaGetLastError());
 #ifdef GPU_CHECK
     cudaDeviceSynchronize();
     cudaCheck(cudaGetLastError());
 #endif
 
-    checkClusterConditionGPU<<<nblocks, nthreads, 0, stream>>>(pt_sst_data_d_, conditions, clust_data_d);
+    checkClusterConditionGPU<<<nblocks, nthreads, 0, stream>>>(pt_sst_data_d_.get(), conditions, clust_data_d);
     cudaCheck(cudaGetLastError());
 
 #ifdef GPU_CHECK
@@ -415,16 +405,25 @@ namespace stripgpu {
     int nblocks = (sst_data_d_->nStrips+nthreads-1)/nthreads;
 
     //mark seed strips
-    setSeedStripsGPU<<<nblocks, nthreads, 0, stream>>>(pt_sst_data_d_, conditions);
+    setSeedStripsGPU<<<nblocks, nthreads, 0, stream>>>(pt_sst_data_d_.get(), conditions);
     cudaCheck(cudaGetLastError());
 
     //mark only non-consecutive seed strips (mask out consecutive seed strips)
-    setNCSeedStripsGPU<<<nblocks, nthreads, 0, stream>>>(pt_sst_data_d_, conditions);
+    setNCSeedStripsGPU<<<nblocks, nthreads, 0, stream>>>(pt_sst_data_d_.get(), conditions);
     cudaCheck(cudaGetLastError());
 
-    cub::DeviceScan::ExclusiveSum(sst_data_d_->d_temp_storage, sst_data_d_->temp_storage_bytes, sst_data_d_->seedStripsNCMask, sst_data_d_->prefixSeedStripsNCMask, sst_data_d_->nStrips, stream);
+    std::size_t temp_storage_bytes = 0;
+    cub::DeviceScan::ExclusiveSum(nullptr, temp_storage_bytes, sst_data_d_->seedStripsNCMask, sst_data_d_->prefixSeedStripsNCMask, sst_data_d_->nStrips, stream);
+#ifdef GPU_DEBUG
+    std::cout<<"temp_storage_bytes="<<sst_data_d_->temp_storage_bytes<<std::endl;
+#endif
 
-    setStripIndexGPU<<<nblocks, nthreads, 0, stream>>>(pt_sst_data_d_);
+    {
+      auto d_temp_storage = cms::cuda::make_device_unique<uint8_t[]>(temp_storage_bytes, stream);
+      cub::DeviceScan::ExclusiveSum(d_temp_storage.get(), temp_storage_bytes, sst_data_d_->seedStripsNCMask, sst_data_d_->prefixSeedStripsNCMask, sst_data_d_->nStrips, stream);
+    }
+
+    setStripIndexGPU<<<nblocks, nthreads, 0, stream>>>(pt_sst_data_d_.get());
     cudaCheck(cudaGetLastError());
 
 #ifdef GPU_DEBUG

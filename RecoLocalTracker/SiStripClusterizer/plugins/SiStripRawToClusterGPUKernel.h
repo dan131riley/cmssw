@@ -33,6 +33,8 @@ namespace stripgpu {
     cms::cuda::device::unique_ptr<uint8_t[]> alldataGPU_;
     cms::cuda::device::unique_ptr<uint16_t[]> channelGPU_;
     cms::cuda::device::unique_ptr<stripgpu::stripId_t[]> stripIdGPU_;
+    cms::cuda::device::unique_ptr<int[]> seedStripsMask_;
+    cms::cuda::device::unique_ptr<int[]> prefixSeedStripsNCMask_;
   };
 
   class SiStripRawToClusterGPUKernel {
@@ -61,14 +63,14 @@ namespace stripgpu {
     std::vector<stripgpu::fedId_t> fedIndex_;
     std::vector<size_t> fedRawDataOffsets_;
 
-    cms::cuda::device::unique_ptr<uint8_t[]> fedRawDataGPU_;
+    cms::cuda::host::unique_ptr<uint8_t[]> fedRawDataHost_;
     std::unique_ptr<StripDataGPU> stripdata_;
 
     std::unique_ptr<ChannelLocs> chanlocs_;
     std::unique_ptr<ChannelLocsGPU> chanlocsGPU_;
 
     cms::cuda::host::unique_ptr<sst_data_t> sst_data_d_;
-    sst_data_t *pt_sst_data_d_;
+    cms::cuda::device::unique_ptr<sst_data_t> pt_sst_data_d_;
 
     SiStripClustersCUDA clusters_d_;
     //std::unique_ptr<clust_data_t> clust_data_d;
