@@ -23,6 +23,8 @@
 #include "FWCore/Framework/interface/Event.h"
 #include "FWCore/Framework/interface/EventSetup.h"
 #include "FWCore/Framework/interface/ESHandle.h"
+#include "FWCore/Utilities/interface/Likely.h"
+
 #include "FWCore/MessageLogger/interface/MessageLogger.h"
 
 #include "HeterogeneousCore/CUDACore/interface/ScopedContext.h"
@@ -33,8 +35,6 @@
 //#include <sstream>
 #include <memory>
 #include <mutex>
-
-#include "FWCore/Utilities/interface/GCC11Compatibility.h"
 
 namespace {
   std::unique_ptr<sistrip::FEDBuffer> fillBuffer(int fedId, const FEDRawData& rawData) {
@@ -80,7 +80,6 @@ public:
   explicit SiStripClusterizerFromRawGPU(const edm::ParameterSet& conf)
       : buffers(1024),
         raw(1024),
-        cabling_(nullptr),
         clusterizer_(StripClusterizerAlgorithmFactory::create(conf.getParameter<edm::ParameterSet>("Clusterizer"))),
         legacy_(conf.existsAs<bool>("LegacyUnpacker") ? conf.getParameter<bool>("LegacyUnpacker") : false) {
     inputToken_ = consumes<FEDRawDataCollection>(conf.getParameter<edm::InputTag>("ProductLabel"));
@@ -143,8 +142,6 @@ private:
   edm::EDGetTokenT<FEDRawDataCollection> inputToken_;
   edm::EDPutTokenT<cms::cuda::Product<SiStripClustersCUDA>> outputToken_;
 
-  SiStripDetCabling const* cabling_;
-
   std::unique_ptr<StripClusterizerAlgorithm> clusterizer_;
 
   bool legacy_;
@@ -155,24 +152,23 @@ DEFINE_FWK_MODULE(SiStripClusterizerFromRawGPU);
 
 void SiStripClusterizerFromRawGPU::initialize(const edm::EventSetup& es) {
   (*clusterizer_).initialize(es);
-  cabling_ = (*clusterizer_).cabling();
 }
 
 void SiStripClusterizerFromRawGPU::run(const FEDRawDataCollection& rawColl) {
   // loop over good det in cabling
-  for (auto idet : clusterizer_->allDetIds()) {
+  for (auto idet : clusterizer_->conditions().allDetIds()) {
     fill(idet, rawColl);
   }  // end loop over dets
 }
 
 void SiStripClusterizerFromRawGPU::fill(uint32_t idet, const FEDRawDataCollection& rawColl) {
 
-  auto const& det = clusterizer_->findDetId(idet);
+  auto const& det = clusterizer_->conditions().findDetId(idet);
   if (!det.valid())
     return;
 
   // Loop over apv-pairs of det
-  for (auto const conn : clusterizer_->currentConnection(det)) {
+  for (auto const conn : clusterizer_->conditions().currentConnection(det)) {
     if
       UNLIKELY(!conn) continue;
 

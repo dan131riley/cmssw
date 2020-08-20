@@ -217,7 +217,7 @@ public:
 #ifdef DSRTOYDUMP
     std::ofstream condfile("stripcond.bin", std::ios::out | std::ios::binary);
 
-    for ( auto idet : clusterizer_->allDetIds()) {
+    for ( auto idet : clusterizer_->conditions().allDetIds()) {
       auto det = clusterizer_->findDetId(idet);
       for (auto const conn : clusterizer_->currentConnection(det)) {
         if (conn && conn->fedId() && conn->isConnected()) {
@@ -306,8 +306,8 @@ void SiStripClusterizerFromRaw::run(const FEDRawDataCollection& rawColl, edmNew:
     if (record.empty())
       record.abort();
 
-    //#define DSRTOYDUMP
-#ifdef DSRTOYDUMP
+    //#define DSRDEBUG
+#ifdef DSRDEBUG
     if (idet == 369120277) {
       std::cout << "Printing clusters for detid " << idet << std::endl;
       for (const auto& cluster : record) {

@@ -1,5 +1,3 @@
-#include "HeterogeneousCore/CUDAUtilities/interface/cudaCompat.h"
-#include "HeterogeneousCore/CUDAUtilities/interface/CUDAHostAllocator.h"
 #include "HeterogeneousCore/CUDAUtilities/interface/device_unique_ptr.h"
 
 #include "DataFormats/SiStripCluster/interface/SiStripClusterTools.h"
@@ -11,9 +9,9 @@ SiStripConditionsGPUWrapper::SiStripConditionsGPUWrapper(const StripClusterizerA
   cudaCheck(cudaMallocHost(&conditions_, sizeof(SiStripConditionsGPU)));
   detToFeds_.clear();
 
-  for ( auto detID : clusterizer->allDetIds()) {
-    auto det = clusterizer->findDetId(detID);
-    for (auto const conn : clusterizer->currentConnection(det)) {
+  for ( auto detID : clusterizer->conditions().allDetIds()) {
+    auto det = clusterizer->conditions().findDetId(detID);
+    for (auto const conn : clusterizer->conditions().currentConnection(det)) {
       if (conn && conn->fedId() && conn->isConnected()) {
         auto fedID = conn->fedId();
         auto fedCh = conn->fedCh();
@@ -29,7 +27,8 @@ SiStripConditionsGPUWrapper::SiStripConditionsGPUWrapper(const StripClusterizerA
 
         for (auto strip = 0; strip < 256; ++strip) {
           auto detstrip = strip + offset;
-          conditions_->setStrip(fedID, fedCh, strip, det.noise(detstrip), det.gain(detstrip), det.bad(detstrip));
+          // FIXME: gain should be per-APV
+          conditions_->setStrip(fedID, fedCh, strip, det.noise(detstrip), 1.0f/det.weight(detstrip), det.bad(detstrip));
         }
       }
     }

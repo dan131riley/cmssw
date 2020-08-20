@@ -59,8 +59,6 @@ public:
     InvalidChargeException(const SiStripDigi&);
   };
 
-  Det findDetId(const uint32_t) const;
-
 protected:
   explicit StripClusterizerAlgorithm(const std::string& conditionsLabel = "") : m_conditionsLabel(conditionsLabel) {}
 

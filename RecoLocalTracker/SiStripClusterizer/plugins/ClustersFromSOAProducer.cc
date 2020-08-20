@@ -18,8 +18,6 @@
 
 #include <memory>
 
-#include "FWCore/Utilities/interface/GCC11Compatibility.h"
-
 class SiStripSOAtoHost {
 public:
   SiStripSOAtoHost() = default;
