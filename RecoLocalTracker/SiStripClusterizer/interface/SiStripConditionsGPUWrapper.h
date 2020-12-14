@@ -23,10 +23,13 @@ private:
 using DetToFeds = std::vector<DetToFed>;
 
 class SiStripConditionsGPU;
+class SiStripQuality;
+class SiStripGain;
+class SiStripNoises;
 
 class SiStripConditionsGPUWrapper {
 public:
-  SiStripConditionsGPUWrapper(const StripClusterizerAlgorithm* clusterizer);
+  SiStripConditionsGPUWrapper(const SiStripQuality& quality, const SiStripGain* gains, const SiStripNoises& noises);
   ~SiStripConditionsGPUWrapper();
 
   // Function to return the actual payload on the memory of the current device

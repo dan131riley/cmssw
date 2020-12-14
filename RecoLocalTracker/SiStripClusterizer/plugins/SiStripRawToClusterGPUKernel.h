@@ -46,7 +46,7 @@ namespace stripgpu {
     }
     void makeAsync(const std::vector<const FEDRawData*>& rawdata,
                    const std::vector<std::unique_ptr<sistrip::FEDBuffer>>& buffers,
-                   const SiStripConditionsGPUWrapper* conditionswrapper,
+                   const SiStripConditionsGPUWrapper& conditionswrapper,
                    cudaStream_t stream);
     void copyAsync(cudaStream_t stream);
     SiStripClustersCUDA getResults(cudaStream_t stream);

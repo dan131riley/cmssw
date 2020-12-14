@@ -12,7 +12,7 @@ namespace stripgpu {
   void SiStripRawToClusterGPUKernel::makeAsync(
                    const std::vector<const FEDRawData*>& rawdata,
                    const std::vector<std::unique_ptr<sistrip::FEDBuffer>>& buffers,
-                   const SiStripConditionsGPUWrapper* conditionswrapper,
+                   const SiStripConditionsGPUWrapper& conditionswrapper,
                    cudaStream_t stream) {
 
     size_t totalSize{0};
@@ -51,7 +51,7 @@ namespace stripgpu {
     // send rawdata to GPU
     cms::cuda::copyAsync(fedRawDataGPU, fedRawDataHost_, totalSize, stream);
 
-    const auto& detmap = conditionswrapper->detToFeds();
+    const auto& detmap = conditionswrapper.detToFeds();
     const uint16_t headerlen = mode == sistrip::READOUT_MODE_ZERO_SUPPRESSED ? 7 : 2;
     size_t offset = 0;
     chanlocs_ = std::make_unique<ChannelLocs>(detmap.size(), stream);
@@ -99,7 +99,7 @@ namespace stripgpu {
     stripdata_ = std::make_unique<StripDataGPU>(max_strips, stream);
     const int max_seedstrips = MAX_SEEDSTRIPS;
 
-    auto condGPU = conditionswrapper->getGPUProductAsync(stream);
+    auto condGPU = conditionswrapper.getGPUProductAsync(stream);
 
     unpackChannelsGPU(condGPU, stream);
 

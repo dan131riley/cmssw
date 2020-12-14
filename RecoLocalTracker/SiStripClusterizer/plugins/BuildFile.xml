@@ -1,5 +1,4 @@
 <library name="RecoLocalTrackerSiStripClusterizerPlugins" file="*.cc *.cu">
-  <use name="cub"/>
   <use name="cuda"/>
   <use name="EventFilter/SiStripRawToDigi"/>
   <use name="RecoLocalTracker/SiStripClusterizer"/>

@@ -415,7 +415,7 @@ namespace stripgpu {
     std::size_t temp_storage_bytes = 0;
     cub::DeviceScan::ExclusiveSum(nullptr, temp_storage_bytes, sst_data_d_->seedStripsNCMask, sst_data_d_->prefixSeedStripsNCMask, sst_data_d_->nStrips, stream);
 #ifdef GPU_DEBUG
-    std::cout<<"temp_storage_bytes="<<sst_data_d_->temp_storage_bytes<<std::endl;
+    std::cout<<"temp_storage_bytes=" << temp_storage_bytes << std::endl;
 #endif
 
     {
@@ -438,7 +438,7 @@ namespace stripgpu {
     cudaCheck(cudaStreamSynchronize(stream));
 
     const int nSeedStripsNC = std::min(MAX_SEEDSTRIPS, sst_data_d_->nSeedStripsNC);
-    std::cout<<"nStrips="<<nStrips<<" nSeedStripsNC="<<sst_data_d_->nSeedStripsNC<<" temp_storage_bytes="<<sst_data_d_->temp_storage_bytes<<std::endl;
+    std::cout<<"nStrips="<<nStrips<<" nSeedStripsNC="<<sst_data_d_->nSeedStripsNC<<std::endl;
     for (int i=0; i<nStrips; i++) {
       std::cout<<" i "<<i<<" mask "<<cpu_mask[i]<<" prefix "<<cpu_prefix[i]<<" index "<<cpu_index[i]<<std::endl;
     }

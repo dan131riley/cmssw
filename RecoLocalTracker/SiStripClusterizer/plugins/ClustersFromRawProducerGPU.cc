@@ -4,6 +4,7 @@
 #include "RecoLocalTracker/SiStripZeroSuppression/interface/SiStripRawProcessingFactory.h"
 
 #include "RecoLocalTracker/SiStripClusterizer/plugins/SiStripRawToClusterGPUKernel.h"
+#include "RecoLocalTracker/Records/interface/SiStripClusterizerGPUConditionsRcd.h"
 #include "RecoLocalTracker/SiStripClusterizer/interface/SiStripConditionsGPUWrapper.h"
 #include "RecoLocalTracker/SiStripClusterizer/interface/StripClusterizerAlgorithm.h"
 #include "RecoLocalTracker/SiStripZeroSuppression/interface/SiStripRawProcessingAlgorithms.h"
@@ -84,16 +85,20 @@ public:
         legacy_(conf.existsAs<bool>("LegacyUnpacker") ? conf.getParameter<bool>("LegacyUnpacker") : false) {
     inputToken_ = consumes<FEDRawDataCollection>(conf.getParameter<edm::InputTag>("ProductLabel"));
     outputToken_ = produces<cms::cuda::Product<SiStripClustersCUDA>>();
-    assert(clusterizer_.get());
+
+    conditionsToken_ = esConsumes<SiStripConditionsGPUWrapper, SiStripClusterizerGPUConditionsRcd>(
+                                        edm::ESInputTag{"", conf.getParameter<std::string>("ConditionsLabel")});
+
+    //assert(clusterizer_.get());
   }
 
   void beginRun(const edm::Run&, const edm::EventSetup& es) override { 
     initialize(es);
-    conditionsWrapper = std::make_unique<SiStripConditionsGPUWrapper>(clusterizer_.get());
   }
 
   void acquire(edm::Event const& ev, edm::EventSetup const& es, edm::WaitingTaskWithArenaHolder waitingTaskHolder) override {
     //initialize(es); // ??
+    const auto& conditions = es.getData(conditionsToken_);
 
     // Sets the current device and creates a CUDA stream
     cms::cuda::ScopedContextAcquire ctx{ev.streamID(), std::move(waitingTaskHolder), ctxState_};
@@ -106,7 +111,7 @@ public:
 
     // Queues asynchronous data transfers and kernels to the CUDA stream
     // returned by cms::cuda::ScopedContextAcquire::stream()
-    gpuAlgo_.makeAsync(raw, buffers, conditionsWrapper.get(), ctx.stream());
+    gpuAlgo_.makeAsync(raw, buffers, conditions, ctx.stream());
 
     // Destructor of ctx queues a callback to the CUDA stream notifying
     // waitingTaskHolder when the queued asynchronous work has finished
@@ -137,10 +142,11 @@ private:
   cms::cuda::ContextState ctxState_;
 
   stripgpu::SiStripRawToClusterGPUKernel gpuAlgo_;
-  std::unique_ptr<SiStripConditionsGPUWrapper> conditionsWrapper;
 
   edm::EDGetTokenT<FEDRawDataCollection> inputToken_;
   edm::EDPutTokenT<cms::cuda::Product<SiStripClustersCUDA>> outputToken_;
+
+  edm::ESGetToken<SiStripConditionsGPUWrapper, SiStripClusterizerGPUConditionsRcd> conditionsToken_;
 
   std::unique_ptr<StripClusterizerAlgorithm> clusterizer_;
 
