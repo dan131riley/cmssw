@@ -44,7 +44,7 @@ SiStripConditionsGPUWrapper::SiStripConditionsGPUWrapper(const SiStripQuality& q
               const auto gainRange = gains->getRange(det);
 
               const auto detstrip = strip + offset;
-              const auto noise = SiStripNoises::getNoise(detstrip, noises.getRange(det));
+              const std::uint16_t noise = SiStripNoises::getRawNoise(detstrip, noises.getRange(det));
               const auto gain = SiStripGain::getStripGain(detstrip, gainRange);
               const auto bad = quality.IsStripBad(quality.getRange(det), detstrip);
 
