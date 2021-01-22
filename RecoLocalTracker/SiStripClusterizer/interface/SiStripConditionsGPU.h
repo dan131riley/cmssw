@@ -23,6 +23,8 @@ namespace stripgpu {
 }
 
 struct SiStripConditionsGPU {
+  static constexpr std::uint16_t badBit = 1 << 15;
+
   __host__ __device__ void setStrip(stripgpu::fedId_t fed,
                                     stripgpu::fedCh_t channel,
                                     stripgpu::stripId_t strip,
@@ -30,9 +32,11 @@ struct SiStripConditionsGPU {
                                     float gain,
                                     bool bad)
   {
-    noise_[stripgpu::fedIndex(fed)][stripgpu::stripIndex(channel, strip)] = noise;
     gain_[stripgpu::fedIndex(fed)][stripgpu::apvIndex(channel, strip)] = gain;
-    bad_[stripgpu::fedIndex(fed)][stripgpu::stripIndex(channel, strip)] = bad;
+    noise_[stripgpu::fedIndex(fed)][stripgpu::stripIndex(channel, strip)] = noise;
+    if (bad) {
+      noise_[stripgpu::fedIndex(fed)][stripgpu::stripIndex(channel, strip)] |= badBit;
+    }
   }
 
   __host__ __device__ void setInvThickness(stripgpu::fedId_t fed, stripgpu::fedCh_t channel, float invthick)
@@ -50,18 +54,17 @@ struct SiStripConditionsGPU {
   { return invthick_[stripgpu::fedIndex(fed)][channel]; }
 
   __host__ __device__ float noise(stripgpu::fedId_t fed, stripgpu::fedCh_t channel, stripgpu::stripId_t strip) const
-  { return 0.1*noise_[stripgpu::fedIndex(fed)][stripgpu::stripIndex(channel, strip)]; }
+  { return 0.1*(noise_[stripgpu::fedIndex(fed)][stripgpu::stripIndex(channel, strip)] & !badBit); }
 
   __host__ __device__ float gain(stripgpu::fedId_t fed, stripgpu::fedCh_t channel, stripgpu::stripId_t strip) const
   { return gain_[stripgpu::fedIndex(fed)][stripgpu::apvIndex(channel, strip)]; }
 
   __host__ __device__ bool bad(stripgpu::fedId_t fed, stripgpu::fedCh_t channel, stripgpu::stripId_t strip) const
-  { return bad_[stripgpu::fedIndex(fed)][stripgpu::stripIndex(channel, strip)]; }
+  { return badBit == (noise_[stripgpu::fedIndex(fed)][stripgpu::stripIndex(channel, strip)] & badBit); }
 
-  alignas(128) std::uint16_t noise_[stripgpu::kFedCount][stripgpu::kStripsPerFed];
   alignas(128) float gain_[stripgpu::kFedCount][stripgpu::kApvCount];
-  alignas(128) bool bad_[stripgpu::kFedCount][stripgpu::kStripsPerFed];
   alignas(128) float invthick_[stripgpu::kFedCount][stripgpu::kChannelCount];
+  alignas(128) std::uint16_t noise_[stripgpu::kFedCount][stripgpu::kStripsPerFed];
   alignas(128) stripgpu::detId_t detID_[stripgpu::kFedCount][stripgpu::kChannelCount];
   alignas(128) stripgpu::APVPair_t iPair_[stripgpu::kFedCount][stripgpu::kChannelCount];
 };
