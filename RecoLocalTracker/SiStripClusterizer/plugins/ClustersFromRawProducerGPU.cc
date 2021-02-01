@@ -5,7 +5,6 @@
 
 #include "RecoLocalTracker/SiStripClusterizer/plugins/SiStripRawToClusterGPUKernel.h"
 #include "RecoLocalTracker/Records/interface/SiStripClusterizerGPUConditionsRcd.h"
-#include "RecoLocalTracker/SiStripClusterizer/interface/SiStripConditionsGPUWrapper.h"
 #include "RecoLocalTracker/SiStripClusterizer/interface/StripClusterizerAlgorithm.h"
 #include "RecoLocalTracker/SiStripZeroSuppression/interface/SiStripRawProcessingAlgorithms.h"
 
@@ -31,6 +30,7 @@
 #include "HeterogeneousCore/CUDACore/interface/ScopedContext.h"
 #include "HeterogeneousCore/CUDAServices/interface/CUDAService.h"
 
+#include "SiStripConditionsGPUWrapper.h"
 #include "ChanLocsGPU.h"
 
 //#include <sstream>

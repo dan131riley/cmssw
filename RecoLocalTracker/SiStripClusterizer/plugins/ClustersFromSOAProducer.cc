@@ -14,7 +14,7 @@
 #include "HeterogeneousCore/CUDACore/interface/ScopedContext.h"
 #include "HeterogeneousCore/CUDAServices/interface/CUDAService.h"
 
-#include "clusterGPU.cuh"
+#include "CUDADataFormats/SiStripCluster/interface/SiStripClustersCUDA.h"
 
 #include <memory>
 
@@ -22,7 +22,7 @@ class SiStripSOAtoHost {
 public:
   SiStripSOAtoHost() = default;
   void makeAsync(const SiStripClustersCUDA& clusters_d, cudaStream_t stream) {
-    hostView_ = clusters_d.hostView(kClusterMaxStrips, stream);
+    hostView_ = clusters_d.hostView(SiStripClustersCUDA::kClusterMaxStrips, stream);
   }
   std::unique_ptr<SiStripClustersCUDA::HostView> getResults() {
     return std::move(hostView_);
@@ -75,7 +75,7 @@ public:
     output->reserve(15000, nSeedStripsNC);
 
     std::vector<uint8_t> adcs;
-    adcs.reserve(kClusterMaxStrips);
+    adcs.reserve(SiStripClustersCUDA::kClusterMaxStrips);
 
     for (int i = 0; i < nSeedStripsNC;) {
       const auto detid = detIDs[i];
@@ -83,7 +83,7 @@ public:
 
       while (i < nSeedStripsNC && detIDs[i] == detid) {
         if (trueCluster[i]) {
-          const auto size = std::min(clusterSize[i], kClusterMaxStrips);
+          const auto size = std::min(clusterSize[i], SiStripClustersCUDA::kClusterMaxStrips);
           const auto firstStrip = stripIDs[i];
 
           adcs.clear();

@@ -7,8 +7,8 @@
 
 #include "HeterogeneousCore/CUDAUtilities/interface/device_unique_ptr.h"
 #include "HeterogeneousCore/CUDAUtilities/interface/host_unique_ptr.h"
-
-#include "RecoLocalTracker/SiStripClusterizer/interface/SiStripConditionsGPU.h"
+#include "CUDADataFormats/SiStripCluster/interface/GPUtypes.h"
+//#include "SiStripConditionsGPU.h"
 
 class ChannelLocsGPU;
 

@@ -11,6 +11,8 @@
 
 class SiStripClustersCUDA {
 public:
+  static constexpr uint32_t kClusterMaxStrips = 16;
+
   SiStripClustersCUDA() = default;
   explicit SiStripClustersCUDA(size_t maxClusters, int clustersPerStrip, cudaStream_t stream);
   ~SiStripClustersCUDA() = default;

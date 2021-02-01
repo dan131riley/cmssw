@@ -6,6 +6,9 @@
 //#include "DataFormats/Common/interface/DetSetVectorNew.h"
 
 #include "HeterogeneousCore/CUDAUtilities/interface/device_unique_ptr.h"
+#include "CUDADataFormats/SiStripCluster/interface/SiStripClustersCUDA.h"
+
+#include "SiStripConditionsGPU.h"
 //#include "ChanLocsGPU.h"
 #include "clusterGPU.cuh"
 

@@ -1,8 +1,7 @@
 #ifndef _CLUSTER_GPU_KERNEL_
 #define _CLUSTER_GPU_KERNEL_
 
-#include "CUDADataFormats/SiStripCluster/interface/SiStripClustersCUDA.h"
-#include "RecoLocalTracker/SiStripClusterizer/interface/SiStripConditionsGPU.h"
+#include "CUDADataFormats/SiStripCluster/interface/GPUtypes.h"
 
 #include <cstdint>
 
@@ -12,7 +11,7 @@ namespace stripgpu {
 struct ChanLocStruct;
 
 static constexpr auto MAX_SEEDSTRIPS = 200000;
-static constexpr uint32_t kClusterMaxStrips = 16;
+static constexpr uint32_t kClusterMaxStrips = SiStripClustersCUDA::kClusterMaxStrips;
 
 struct sst_data_t {
   const ChanLocStruct* chanlocs;

@@ -13,11 +13,11 @@
 #include "FWCore/ParameterSet/interface/ParameterSetDescription.h"
 
 #include "RecoLocalTracker/Records/interface/SiStripClusterizerGPUConditionsRcd.h"
-//#include "CalibFormats/SiStripObjects/interface/SiStripClusterizerConditions.h"
-#include "RecoLocalTracker/SiStripClusterizer/interface/SiStripConditionsGPUWrapper.h"
 
 #include "CalibFormats/SiStripObjects/interface/SiStripGain.h"
 #include "CalibFormats/SiStripObjects/interface/SiStripDetCabling.h"
+
+#include "SiStripConditionsGPUWrapper.h"
 
 class SiStripClusterizerGPUConditionsESProducer : public edm::ESProducer {
 public:

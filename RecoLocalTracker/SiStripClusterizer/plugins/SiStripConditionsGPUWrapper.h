@@ -3,8 +3,9 @@
 
 #include "HeterogeneousCore/CUDACore/interface/ESProduct.h"
 #include "CondFormats/SiStripObjects/interface/FedChannelConnection.h"
-#include "RecoLocalTracker/SiStripClusterizer/interface/SiStripConditionsGPU.h"
 #include "RecoLocalTracker/SiStripClusterizer/interface/StripClusterizerAlgorithm.h"
+
+#include "SiStripConditionsGPU.h"
 
 class DetToFed {
 public:

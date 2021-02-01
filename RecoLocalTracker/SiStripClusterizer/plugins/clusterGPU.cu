@@ -10,6 +10,9 @@
 
 #include "HeterogeneousCore/CUDAUtilities/interface/copyAsync.h"
 
+#include "CUDADataFormats/SiStripCluster/interface/SiStripClustersCUDA.h"
+
+#include "SiStripConditionsGPU.h"
 #include "ChanLocsGPU.h"
 #include "SiStripRawToClusterGPUKernel.h"
 #include "clusterGPU.cuh"

@@ -1,11 +1,11 @@
 #include "EventFilter/SiStripRawToDigi/interface/SiStripFEDBuffer.h"
-#include "RecoLocalTracker/SiStripClusterizer/interface/SiStripConditionsGPUWrapper.h"
 #include "DataFormats/Common/interface/DetSetVectorNew.h"
 #include "HeterogeneousCore/CUDAUtilities/interface/host_unique_ptr.h"
 #include "HeterogeneousCore/CUDAUtilities/interface/copyAsync.h"
 
 #include "SiStripRawToClusterGPUKernel.h"
 
+#include "SiStripConditionsGPUWrapper.h"
 #include "ChanLocsGPU.h"
 
 namespace stripgpu {

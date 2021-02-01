@@ -4,8 +4,8 @@
 #include "CalibFormats/SiStripObjects/interface/SiStripDetCabling.h"
 
 #include "DataFormats/SiStripCluster/interface/SiStripClusterTools.h"
-//#include "RecoLocalTracker/SiStripClusterizer/interface/StripClusterizerAlgorithm.h"
-#include "RecoLocalTracker/SiStripClusterizer/interface/SiStripConditionsGPUWrapper.h"
+
+#include "SiStripConditionsGPUWrapper.h"
 
 SiStripConditionsGPUWrapper::SiStripConditionsGPUWrapper(const SiStripQuality& quality, const SiStripGain* gains, const SiStripNoises& noises)
 {
