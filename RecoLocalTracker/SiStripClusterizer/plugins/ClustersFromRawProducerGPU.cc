@@ -5,7 +5,6 @@
 
 #include "RecoLocalTracker/SiStripClusterizer/plugins/SiStripRawToClusterGPUKernel.h"
 #include "RecoLocalTracker/Records/interface/SiStripClusterizerGPUConditionsRcd.h"
-#include "RecoLocalTracker/SiStripClusterizer/interface/StripClusterizerAlgorithm.h"
 #include "RecoLocalTracker/SiStripZeroSuppression/interface/SiStripRawProcessingAlgorithms.h"
 
 #include "DataFormats/SiStripCluster/interface/SiStripCluster.h"
@@ -81,24 +80,22 @@ public:
   explicit SiStripClusterizerFromRawGPU(const edm::ParameterSet& conf)
       : buffers(1024),
         raw(1024),
-        clusterizer_(StripClusterizerAlgorithmFactory::create(conf.getParameter<edm::ParameterSet>("Clusterizer"))),
-        legacy_(conf.existsAs<bool>("LegacyUnpacker") ? conf.getParameter<bool>("LegacyUnpacker") : false) {
+        gpuAlgo_(conf.getParameter<edm::ParameterSet>("Clusterizer")) {
     inputToken_ = consumes<FEDRawDataCollection>(conf.getParameter<edm::InputTag>("ProductLabel"));
     outputToken_ = produces<cms::cuda::Product<SiStripClustersCUDA>>();
 
     conditionsToken_ = esConsumes<SiStripConditionsGPUWrapper, SiStripClusterizerGPUConditionsRcd>(
                                         edm::ESInputTag{"", conf.getParameter<std::string>("ConditionsLabel")});
-
-    //assert(clusterizer_.get());
+    CPUconditionsToken_ = esConsumes<SiStripClusterizerConditions, SiStripClusterizerConditionsRcd>(
+                                        edm::ESInputTag{"", conf.getParameter<std::string>("ConditionsLabel")});
   }
 
   void beginRun(const edm::Run&, const edm::EventSetup& es) override { 
-    initialize(es);
   }
 
   void acquire(edm::Event const& ev, edm::EventSetup const& es, edm::WaitingTaskWithArenaHolder waitingTaskHolder) override {
-    //initialize(es); // ??
     const auto& conditions = es.getData(conditionsToken_);
+    const auto& CPUconditions = es.getData(CPUconditionsToken_);
 
     // Sets the current device and creates a CUDA stream
     cms::cuda::ScopedContextAcquire ctx{ev.streamID(), std::move(waitingTaskHolder), ctxState_};
@@ -107,7 +104,7 @@ public:
     edm::Handle<FEDRawDataCollection> rawData;
     ev.getByToken(inputToken_, rawData);
 
-    run(*rawData);
+    run(*rawData, CPUconditions);
 
     // Queues asynchronous data transfers and kernels to the CUDA stream
     // returned by cms::cuda::ScopedContextAcquire::stream()
@@ -132,9 +129,8 @@ public:
   }
 
 private:
-  void initialize(const edm::EventSetup& es);
-  void run(const FEDRawDataCollection& rawColl);
-  void fill(uint32_t idet, const FEDRawDataCollection& rawColl);
+  void run(const FEDRawDataCollection& rawColl, const SiStripClusterizerConditions& conditions);
+  void fill(uint32_t idet, const FEDRawDataCollection& rawColl, const SiStripClusterizerConditions& conditions);
 
 private:
   std::vector<std::unique_ptr<sistrip::FEDBuffer>> buffers;
@@ -147,34 +143,27 @@ private:
   edm::EDPutTokenT<cms::cuda::Product<SiStripClustersCUDA>> outputToken_;
 
   edm::ESGetToken<SiStripConditionsGPUWrapper, SiStripClusterizerGPUConditionsRcd> conditionsToken_;
-
-  std::unique_ptr<StripClusterizerAlgorithm> clusterizer_;
-
-  bool legacy_;
+  edm::ESGetToken<SiStripClusterizerConditions, SiStripClusterizerConditionsRcd> CPUconditionsToken_;
 };
 
 #include "FWCore/Framework/interface/MakerMacros.h"
 DEFINE_FWK_MODULE(SiStripClusterizerFromRawGPU);
 
-void SiStripClusterizerFromRawGPU::initialize(const edm::EventSetup& es) {
-  (*clusterizer_).initialize(es);
-}
-
-void SiStripClusterizerFromRawGPU::run(const FEDRawDataCollection& rawColl) {
+void SiStripClusterizerFromRawGPU::run(const FEDRawDataCollection& rawColl, const SiStripClusterizerConditions& conditions) {
   // loop over good det in cabling
-  for (auto idet : clusterizer_->conditions().allDetIds()) {
-    fill(idet, rawColl);
+  for (auto idet : conditions.allDetIds()) {
+    fill(idet, rawColl, conditions);
   }  // end loop over dets
 }
 
-void SiStripClusterizerFromRawGPU::fill(uint32_t idet, const FEDRawDataCollection& rawColl) {
+void SiStripClusterizerFromRawGPU::fill(uint32_t idet, const FEDRawDataCollection& rawColl, const SiStripClusterizerConditions& conditions) {
 
-  auto const& det = clusterizer_->conditions().findDetId(idet);
+  auto const& det = conditions.findDetId(idet);
   if (!det.valid())
     return;
 
   // Loop over apv-pairs of det
-  for (auto const conn : clusterizer_->conditions().currentConnection(det)) {
+  for (auto const conn : conditions.currentConnection(det)) {
     if
       UNLIKELY(!conn) continue;
 
@@ -196,7 +185,5 @@ void SiStripClusterizerFromRawGPU::fill(uint32_t idet, const FEDRawDataCollectio
       buffers[fedId].reset(buffer);
     }
     assert(buffer);
-
-    buffer->setLegacyMode(legacy_);
   }  // end loop over conn
 }

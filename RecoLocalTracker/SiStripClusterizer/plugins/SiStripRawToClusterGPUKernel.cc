@@ -2,6 +2,7 @@
 #include "DataFormats/Common/interface/DetSetVectorNew.h"
 #include "HeterogeneousCore/CUDAUtilities/interface/host_unique_ptr.h"
 #include "HeterogeneousCore/CUDAUtilities/interface/copyAsync.h"
+#include "RecoLocalTracker/SiStripClusterizer/interface/ClusterChargeCut.h"
 
 #include "SiStripRawToClusterGPUKernel.h"
 
@@ -9,6 +10,19 @@
 #include "ChanLocsGPU.h"
 
 namespace stripgpu {
+  SiStripRawToClusterGPUKernel::SiStripRawToClusterGPUKernel(const edm::ParameterSet& conf)
+    : fedIndex_(stripgpu::kFedCount, stripgpu::invFed),
+      ChannelThreshold_(conf.getParameter<double>("ChannelThreshold")),
+      SeedThreshold_(conf.getParameter<double>("SeedThreshold")),
+      ClusterThresholdSquared_(conf.getParameter<double>("ClusterThreshold")),
+      MaxSequentialHoles_(conf.getParameter<unsigned>("MaxSequentialHoles")),
+      MaxSequentialBad_(conf.getParameter<unsigned>("MaxSequentialBad")),
+      MaxAdjacentBad_(conf.getParameter<unsigned>("MaxAdjacentBad")),
+      minGoodCharge_(clusterChargeCut(conf))
+  {
+    fedRawDataOffsets_.reserve(stripgpu::kFedCount);
+  }
+
   void SiStripRawToClusterGPUKernel::makeAsync(
                    const std::vector<const FEDRawData*>& rawdata,
                    const std::vector<std::unique_ptr<sistrip::FEDBuffer>>& buffers,

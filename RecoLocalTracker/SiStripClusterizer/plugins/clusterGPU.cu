@@ -32,8 +32,7 @@ namespace stripgpu {
     const uint16_t *__restrict__ stripId = sst_data_d->stripId;
     int *__restrict__ seedStripsMask = sst_data_d->seedStripsMask;
     int *__restrict__ seedStripsNCMask = sst_data_d->seedStripsNCMask;
-
-    constexpr float SeedThreshold = 3.0;
+    const float SeedThreshold = sst_data_d->SeedThreshold_;
 
     const int tid = threadIdx.x;
     const int bid = blockIdx.x;
@@ -108,16 +107,15 @@ namespace stripgpu {
     const uint16_t *__restrict__ channels = sst_data_d->channel;
     const uint8_t *__restrict__ adc = sst_data_d->adc;
     const int nSeedStripsNC = std::min(maxseeds(), *(sst_data_d->prefixSeedStripsNCMask+nStrips-1));
+    const uint8_t MaxSequentialHoles = sst_data_d->MaxSequentialHoles_;
+    const float  ChannelThreshold = sst_data_d->ChannelThreshold_;
+    const float ClusterThresholdSquared = sst_data_d->ClusterThresholdSquared_;
 
     uint32_t *__restrict__ clusterIndexLeft = clust_data_d->clusterIndex_;
     uint32_t *__restrict__ clusterSize = clust_data_d->clusterSize_;
     detId_t *__restrict__ clusterDetId = clust_data_d->clusterDetId_;
     stripId_t *__restrict__ firstStrip = clust_data_d->firstStrip_;
     bool *__restrict__ trueCluster = clust_data_d->trueCluster_;
-
-    constexpr uint8_t MaxSequentialHoles = 0;
-    constexpr float  ChannelThreshold = 2.0f;
-    constexpr float ClusterThresholdSquared = 25.0f;
 
     const int tid = threadIdx.x;
     const int bid = blockIdx.x;
@@ -235,15 +233,16 @@ namespace stripgpu {
     const auto __restrict__ chanlocs = sst_data_d->chanlocs;
     const uint16_t *__restrict__ channels = sst_data_d->channel;
     const uint8_t *__restrict__ adc = sst_data_d->adc;
-    const uint32_t *__restrict__ clusterIndexLeft = clust_data_d->clusterIndex_;
     const int nSeedStripsNC = std::min(maxseeds(), *(sst_data_d->prefixSeedStripsNCMask+sst_data_d->nStrips-1));
+    const float minGoodCharge = sst_data_d->minGoodCharge_; //1620.0;
+
+    const uint32_t *__restrict__ clusterIndexLeft = clust_data_d->clusterIndex_;
 
     uint32_t *__restrict__ clusterSize = clust_data_d->clusterSize_;
     uint8_t *__restrict__ clusterADCs = clust_data_d->clusterADCs_;
     bool *__restrict__ trueCluster = clust_data_d->trueCluster_;
     float *__restrict__ barycenter = clust_data_d->barycenter_;
 
-    constexpr float minGoodCharge = -1.0f; //1620.0;
     constexpr uint16_t stripIndexMask = 0x7FFF;
 
     const int tid = threadIdx.x;
@@ -315,6 +314,14 @@ namespace stripgpu {
 
     sst_data_d_->seedStripsNCMask = sst_data_d_->seedStripsMask + max_strips;
     sst_data_d_->seedStripsNCIndex = sst_data_d_->prefixSeedStripsNCMask + max_strips;
+
+    sst_data_d_->ChannelThreshold_ = ChannelThreshold_;
+    sst_data_d_->SeedThreshold_ = SeedThreshold_;
+    sst_data_d_->ClusterThresholdSquared_ = ClusterThresholdSquared_;
+    sst_data_d_->MaxSequentialHoles_ = MaxSequentialHoles_;
+    sst_data_d_->MaxSequentialBad_ = MaxSequentialBad_;
+    sst_data_d_->MaxAdjacentBad_ = MaxAdjacentBad_;
+    sst_data_d_->minGoodCharge_ = minGoodCharge_;
 
     pt_sst_data_d_ = cms::cuda::make_device_unique<sst_data_t>(stream);
     cms::cuda::copyAsync(pt_sst_data_d_, sst_data_d_, stream);

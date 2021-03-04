@@ -95,7 +95,7 @@ public:
         i++;
       }
 
-      //#define DSRDEBUG
+#define DSRDEBUG
 #ifdef DSRDEBUG
       if (detid == 369120277) {
         std::cout << "Printing clusters for detid " << detid << std::endl;

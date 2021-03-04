@@ -1,15 +1,10 @@
 #ifndef RecoLocalTracker_SiStripClusterizer_plugins_SiStripRawToClusterGPUKernel_h
 #define RecoLocalTracker_SiStripClusterizer_plugins_SiStripRawToClusterGPUKernel_h
 
-//#include "EventFilter/SiStripRawToDigi/interface/SiStripFEDBuffer.h"
-//#include "DataFormats/SiStripCluster/interface/SiStripCluster.h"
-//#include "DataFormats/Common/interface/DetSetVectorNew.h"
-
 #include "HeterogeneousCore/CUDAUtilities/interface/device_unique_ptr.h"
 #include "CUDADataFormats/SiStripCluster/interface/SiStripClustersCUDA.h"
 
 #include "SiStripConditionsGPU.h"
-//#include "ChanLocsGPU.h"
 #include "clusterGPU.cuh"
 
 #include <cuda_runtime.h>
@@ -23,6 +18,9 @@ class ChannelLocsGPU;
 class FEDRawData;
 namespace sistrip {
   class FEDBuffer;
+}
+namespace edm {
+  class ParameterSet;
 }
 
 class sst_data_t;
@@ -42,11 +40,7 @@ namespace stripgpu {
 
   class SiStripRawToClusterGPUKernel {
   public:
-    SiStripRawToClusterGPUKernel()
-      : fedIndex_(stripgpu::kFedCount, stripgpu::invFed)
-    {
-      fedRawDataOffsets_.reserve(stripgpu::kFedCount);
-    }
+    SiStripRawToClusterGPUKernel(const edm::ParameterSet& conf);
     void makeAsync(const std::vector<const FEDRawData*>& rawdata,
                    const std::vector<std::unique_ptr<sistrip::FEDBuffer>>& buffers,
                    const SiStripConditionsGPUWrapper& conditionswrapper,
@@ -76,9 +70,9 @@ namespace stripgpu {
     cms::cuda::device::unique_ptr<sst_data_t> pt_sst_data_d_;
 
     SiStripClustersCUDA clusters_d_;
-    //std::unique_ptr<clust_data_t> clust_data_d;
-    //std::unique_ptr<clust_data_t> clust_data;
-    //clust_data_t *pt_clust_data_d;
+    float ChannelThreshold_, SeedThreshold_, ClusterThresholdSquared_;
+    uint8_t MaxSequentialHoles_, MaxSequentialBad_, MaxAdjacentBad_;
+    float minGoodCharge_;
   };
 }
 #endif
