@@ -2,6 +2,7 @@
 #define _CLUSTER_GPU_KERNEL_
 
 #include "CUDADataFormats/SiStripCluster/interface/GPUtypes.h"
+#include "CUDADataFormats/SiStripCluster/interface/SiStripClustersCUDA.h"
 
 #include <cstdint>
 
