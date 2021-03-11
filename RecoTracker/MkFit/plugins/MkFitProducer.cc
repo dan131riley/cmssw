@@ -63,8 +63,8 @@ MkFitProducer::MkFitProducer(edm::ParameterSet const& iConfig)
   } else if (build == "cloneEngine") {
     buildFunction_ = mkfit::runBuildingTestPlexCloneEngine;
   } else {
-    throw cms::Exception("Configuration") << "Invalid value for parameter 'buildingRoutine' " << build
-                                          << ", allowed are bestHit, standard, cloneEngine";
+    throw cms::Exception("Configuration")
+        << "Invalid value for parameter 'buildingRoutine' " << build << ", allowed are bestHit, standard, cloneEngine";
   }
 
   const auto seedClean = iConfig.getParameter<std::string>("seedCleaning");

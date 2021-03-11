@@ -7,7 +7,13 @@
 <use name="CondFormats/SiStripObjects"/>
 <use name="CalibFormats/SiStripObjects"/>
 <use name="CalibTracker/Records"/>
+<use name="MagneticField/Records"/>
+<use name="MagneticField/Engine"/>
 <use name="RecoLocalTracker/Records"/>
+<use name="HeterogeneousCore/CUDACore"/>
+<use   name="CUDADataFormats/SiStripCluster"/>
+<use name="cuda"/>
+<use name="mkfit"/>
 <export>
   <lib name="1"/>
 </export>
