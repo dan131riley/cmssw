@@ -6,7 +6,8 @@
 #include "CalibTracker/Records/interface/SiStripDependentRecords.h"
 
 class SiStripClusterizerGPUConditionsRcd : public edm::eventsetup::DependentRecordImplementation<
-                                            SiStripClusterizerGPUConditionsRcd,
-                                            edm::mpl::Vector<SiStripGainRcd, SiStripNoisesRcd, SiStripQualityRcd>> {};
+                                               SiStripClusterizerGPUConditionsRcd,
+                                               edm::mpl::Vector<SiStripGainRcd, SiStripNoisesRcd, SiStripQualityRcd>> {
+};
 
 #endif  // RecoLocalTracker_Records_SiStripClusterizerGPUConditionsRcd_h

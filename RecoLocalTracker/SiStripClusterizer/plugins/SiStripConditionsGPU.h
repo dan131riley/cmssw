@@ -10,17 +10,17 @@ namespace stripgpu {
   static constexpr int kFedLast = 489;
   static constexpr int kFedCount = kFedLast - kFedFirst + 1;
   static constexpr int kChannelCount = 96;
-  static constexpr int kApvCount = 2*kChannelCount;
-  static constexpr int kStripsPerFed = kChannelCount*kStripsPerChannel;
+  static constexpr int kApvCount = 2 * kChannelCount;
+  static constexpr int kStripsPerFed = kChannelCount * kStripsPerChannel;
 
-  __host__ __device__ inline fedId_t fedIndex(fedId_t fed) { return fed-kFedFirst; }
+  __host__ __device__ inline fedId_t fedIndex(fedId_t fed) { return fed - kFedFirst; }
   __host__ __device__ inline stripId_t stripIndex(fedCh_t channel, stripId_t strip) {
-    return channel*kStripsPerChannel + (strip % kStripsPerChannel);
+    return channel * kStripsPerChannel + (strip % kStripsPerChannel);
   }
   __host__ __device__ inline stripId_t apvIndex(fedCh_t channel, stripId_t strip) {
-    return channel*kStripsPerChannel + (strip % kStripsPerChannel)/128;
+    return channel * kStripsPerChannel + (strip % kStripsPerChannel) / 128;
   }
-}
+}  // namespace stripgpu
 
 struct SiStripConditionsGPU {
   static constexpr std::uint16_t badBit = 1 << 15;
@@ -30,8 +30,7 @@ struct SiStripConditionsGPU {
                                     stripgpu::stripId_t strip,
                                     std::uint16_t noise,
                                     float gain,
-                                    bool bad)
-  {
+                                    bool bad) {
     gain_[stripgpu::fedIndex(fed)][stripgpu::apvIndex(channel, strip)] = gain;
     noise_[stripgpu::fedIndex(fed)][stripgpu::stripIndex(channel, strip)] = noise;
     if (bad) {
@@ -39,28 +38,33 @@ struct SiStripConditionsGPU {
     }
   }
 
-  __host__ __device__ void setInvThickness(stripgpu::fedId_t fed, stripgpu::fedCh_t channel, float invthick)
-  {
+  __host__ __device__ void setInvThickness(stripgpu::fedId_t fed, stripgpu::fedCh_t channel, float invthick) {
     invthick_[stripgpu::fedIndex(fed)][channel] = invthick;
   }
 
-  __host__ __device__ stripgpu::detId_t detID(stripgpu::fedId_t fed, stripgpu::fedCh_t channel) const
-  { return detID_[stripgpu::fedIndex(fed)][channel]; }
+  __host__ __device__ stripgpu::detId_t detID(stripgpu::fedId_t fed, stripgpu::fedCh_t channel) const {
+    return detID_[stripgpu::fedIndex(fed)][channel];
+  }
 
-  __host__ __device__ stripgpu::APVPair_t iPair(stripgpu::fedId_t fed, stripgpu::fedCh_t channel) const
-  { return iPair_[stripgpu::fedIndex(fed)][channel]; }
+  __host__ __device__ stripgpu::APVPair_t iPair(stripgpu::fedId_t fed, stripgpu::fedCh_t channel) const {
+    return iPair_[stripgpu::fedIndex(fed)][channel];
+  }
 
-  __host__ __device__ float invthick(stripgpu::fedId_t fed, stripgpu::fedCh_t channel) const
-  { return invthick_[stripgpu::fedIndex(fed)][channel]; }
+  __host__ __device__ float invthick(stripgpu::fedId_t fed, stripgpu::fedCh_t channel) const {
+    return invthick_[stripgpu::fedIndex(fed)][channel];
+  }
 
-  __host__ __device__ float noise(stripgpu::fedId_t fed, stripgpu::fedCh_t channel, stripgpu::stripId_t strip) const
-  { return 0.1*(noise_[stripgpu::fedIndex(fed)][stripgpu::stripIndex(channel, strip)] & !badBit); }
+  __host__ __device__ float noise(stripgpu::fedId_t fed, stripgpu::fedCh_t channel, stripgpu::stripId_t strip) const {
+    return 0.1 * (noise_[stripgpu::fedIndex(fed)][stripgpu::stripIndex(channel, strip)] & !badBit);
+  }
 
-  __host__ __device__ float gain(stripgpu::fedId_t fed, stripgpu::fedCh_t channel, stripgpu::stripId_t strip) const
-  { return gain_[stripgpu::fedIndex(fed)][stripgpu::apvIndex(channel, strip)]; }
+  __host__ __device__ float gain(stripgpu::fedId_t fed, stripgpu::fedCh_t channel, stripgpu::stripId_t strip) const {
+    return gain_[stripgpu::fedIndex(fed)][stripgpu::apvIndex(channel, strip)];
+  }
 
-  __host__ __device__ bool bad(stripgpu::fedId_t fed, stripgpu::fedCh_t channel, stripgpu::stripId_t strip) const
-  { return badBit == (noise_[stripgpu::fedIndex(fed)][stripgpu::stripIndex(channel, strip)] & badBit); }
+  __host__ __device__ bool bad(stripgpu::fedId_t fed, stripgpu::fedCh_t channel, stripgpu::stripId_t strip) const {
+    return badBit == (noise_[stripgpu::fedIndex(fed)][stripgpu::stripIndex(channel, strip)] & badBit);
+  }
 
   alignas(128) float gain_[stripgpu::kFedCount][stripgpu::kApvCount];
   alignas(128) float invthick_[stripgpu::kFedCount][stripgpu::kChannelCount];

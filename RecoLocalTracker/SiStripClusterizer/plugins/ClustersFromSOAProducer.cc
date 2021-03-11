@@ -24,9 +24,8 @@ public:
   void makeAsync(const SiStripClustersCUDA& clusters_d, cudaStream_t stream) {
     hostView_ = clusters_d.hostView(SiStripClustersCUDA::kClusterMaxStrips, stream);
   }
-  std::unique_ptr<SiStripClustersCUDA::HostView> getResults() {
-    return std::move(hostView_);
-  }
+  std::unique_ptr<SiStripClustersCUDA::HostView> getResults() { return std::move(hostView_); }
+
 private:
   std::unique_ptr<SiStripClustersCUDA::HostView> hostView_;
 };
@@ -38,10 +37,11 @@ public:
     outputToken_ = produces<edmNew::DetSetVector<SiStripCluster>>();
   }
 
-  void beginRun(const edm::Run&, const edm::EventSetup& es) override { 
-  }
+  void beginRun(const edm::Run&, const edm::EventSetup& es) override {}
 
-  void acquire(edm::Event const& ev, edm::EventSetup const& es, edm::WaitingTaskWithArenaHolder waitingTaskHolder) override {
+  void acquire(edm::Event const& ev,
+               edm::EventSetup const& es,
+               edm::WaitingTaskWithArenaHolder waitingTaskHolder) override {
     const auto& wrapper = ev.get(inputToken_);
 
     // Sets the current device and creates a CUDA stream
@@ -88,7 +88,7 @@ public:
 
           adcs.clear();
           for (uint32_t j = 0; j < size; ++j) {
-            adcs.push_back(ADCs[i+j*nSeedStripsNC]);
+            adcs.push_back(ADCs[i + j * nSeedStripsNC]);
           }
           record.push_back(SiStripCluster(firstStrip, adcs.begin(), adcs.end()));
         }
@@ -102,7 +102,7 @@ public:
         for (const auto& cluster : record) {
           std::cout << "Cluster " << cluster.firstStrip() << ": ";
           for (const auto& ampl : cluster.amplitudes()) {
-            std::cout << (int) ampl << " ";
+            std::cout << (int)ampl << " ";
           }
           std::cout << std::endl;
         }

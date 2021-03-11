@@ -14,6 +14,6 @@ namespace stripgpu {
   static constexpr detId_t invDet = std::numeric_limits<detId_t>::max();
   static constexpr fedId_t invFed = std::numeric_limits<fedId_t>::max();
   static constexpr stripId_t invStrip = std::numeric_limits<stripId_t>::max();
-}
+}  // namespace stripgpu
 
 #endif

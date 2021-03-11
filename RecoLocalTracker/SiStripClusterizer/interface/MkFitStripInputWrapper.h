@@ -11,16 +11,16 @@ namespace mkfit {
   class Track;
   class LayerNumberConverter;
   using HitVec = std::vector<Hit>;
-//  using TrackVec = std::vector<Track>;
+  //  using TrackVec = std::vector<Track>;
 }  // namespace mkfit
 
 class MkFitStripInputWrapper {
 public:
   MkFitStripInputWrapper();
-  MkFitStripInputWrapper(//MkFitHitIndexMap hitIndexMap,
-                    std::vector<mkfit::HitVec> hits,
-                    //mkfit::TrackVec seeds,
-                    mkfit::LayerNumberConverter const& lnc);
+  MkFitStripInputWrapper(  //MkFitHitIndexMap hitIndexMap,
+      std::vector<mkfit::HitVec> hits,
+      //mkfit::TrackVec seeds,
+      mkfit::LayerNumberConverter const& lnc);
   ~MkFitStripInputWrapper();
 
   MkFitStripInputWrapper(MkFitStripInputWrapper const&) = delete;

@@ -11,24 +11,21 @@
 
 namespace stripgpu {
   SiStripRawToClusterGPUKernel::SiStripRawToClusterGPUKernel(const edm::ParameterSet& conf)
-    : fedIndex_(stripgpu::kFedCount, stripgpu::invFed),
-      ChannelThreshold_(conf.getParameter<double>("ChannelThreshold")),
-      SeedThreshold_(conf.getParameter<double>("SeedThreshold")),
-      ClusterThresholdSquared_(conf.getParameter<double>("ClusterThreshold")),
-      MaxSequentialHoles_(conf.getParameter<unsigned>("MaxSequentialHoles")),
-      MaxSequentialBad_(conf.getParameter<unsigned>("MaxSequentialBad")),
-      MaxAdjacentBad_(conf.getParameter<unsigned>("MaxAdjacentBad")),
-      minGoodCharge_(clusterChargeCut(conf))
-  {
+      : fedIndex_(stripgpu::kFedCount, stripgpu::invFed),
+        ChannelThreshold_(conf.getParameter<double>("ChannelThreshold")),
+        SeedThreshold_(conf.getParameter<double>("SeedThreshold")),
+        ClusterThresholdSquared_(conf.getParameter<double>("ClusterThreshold")),
+        MaxSequentialHoles_(conf.getParameter<unsigned>("MaxSequentialHoles")),
+        MaxSequentialBad_(conf.getParameter<unsigned>("MaxSequentialBad")),
+        MaxAdjacentBad_(conf.getParameter<unsigned>("MaxAdjacentBad")),
+        minGoodCharge_(clusterChargeCut(conf)) {
     fedRawDataOffsets_.reserve(stripgpu::kFedCount);
   }
 
-  void SiStripRawToClusterGPUKernel::makeAsync(
-                   const std::vector<const FEDRawData*>& rawdata,
-                   const std::vector<std::unique_ptr<sistrip::FEDBuffer>>& buffers,
-                   const SiStripConditionsGPUWrapper& conditionswrapper,
-                   cudaStream_t stream) {
-
+  void SiStripRawToClusterGPUKernel::makeAsync(const std::vector<const FEDRawData*>& rawdata,
+                                               const std::vector<std::unique_ptr<sistrip::FEDBuffer>>& buffers,
+                                               const SiStripConditionsGPUWrapper& conditionswrapper,
+                                               cudaStream_t stream) {
     size_t totalSize{0};
     for (const auto& buff : buffers) {
       if (buff != nullptr) {
@@ -37,7 +34,7 @@ namespace stripgpu {
     }
 
     fedRawDataHost_ = cms::cuda::make_host_unique<uint8_t[]>(totalSize, stream);
-    auto fedRawDataGPU  = cms::cuda::make_device_unique<uint8_t[]>(totalSize, stream);
+    auto fedRawDataGPU = cms::cuda::make_device_unique<uint8_t[]>(totalSize, stream);
 
     size_t off = 0;
     fedRawDataOffsets_.clear();
@@ -59,7 +56,6 @@ namespace stripgpu {
         } else {
           assert(buff->readoutMode() == mode);
         }
-      
       }
     }
     // send rawdata to GPU
@@ -73,7 +69,7 @@ namespace stripgpu {
 
     // iterate over the detector in DetID/APVPair order
     // mapping out where the data are
-    for(size_t i = 0; i < detmap.size(); ++i) {
+    for (size_t i = 0; i < detmap.size(); ++i) {
       const auto& detp = detmap[i];
       const auto fedId = detp.fedID();
       const auto fedCh = detp.fedCh();
@@ -85,13 +81,13 @@ namespace stripgpu {
 
         if (channel.length() >= headerlen) {
           auto len = channel.length() - headerlen;
-          chanlocs_->setChannelLoc(i, channel.data(), channel.offset()+headerlen, offset, len,
-                                 fedId, fedCh, detp.detID());
+          chanlocs_->setChannelLoc(
+              i, channel.data(), channel.offset() + headerlen, offset, len, fedId, fedCh, detp.detID());
           inputGPU[i] = fedRawDataGPU.get() + fedRawDataOffsets_[fedi] + (channel.data() - rawdata[fedId]->data());
           offset += len;
         } else {
-          chanlocs_->setChannelLoc(i, channel.data(), channel.offset(), offset, channel.length(),
-                                 fedId, fedCh, detp.detID());
+          chanlocs_->setChannelLoc(
+              i, channel.data(), channel.offset(), offset, channel.length(), fedId, fedCh, detp.detID());
           inputGPU[i] = fedRawDataGPU.get() + fedRawDataOffsets_[fedi] + (channel.data() - rawdata[fedId]->data());
           offset += channel.length();
           assert(channel.length() == 0);
@@ -125,7 +121,7 @@ namespace stripgpu {
     cms::cuda::copyAsync(outdata, stripdata_->alldataGPU_, max_strips, stream);
     cudaCheck(cudaStreamSynchronize(stream));
 
-    for(size_t i = 0; i < chanlocs_->size(); ++i) {
+    for (size_t i = 0; i < chanlocs_->size(); ++i) {
       const auto data = chanlocs_->input(i);
       const auto len = chanlocs_->length(i);
 
@@ -135,12 +131,13 @@ namespace stripgpu {
         const auto end = choff + len;
 
         while (choff < end) {
-          const auto stripIndex = data[choff++^7];
-          const auto groupLength = data[choff++^7];
+          const auto stripIndex = data[choff++ ^ 7];
+          const auto groupLength = data[choff++ ^ 7];
           aoff += 2;
           for (auto k = 0; k < groupLength; ++k, ++choff, ++aoff) {
-            if (data[choff^7] != outdata[aoff]) {
-              std::cout << "i:k " << i << ":" << k << " " << (uint32_t) data[choff^7] << " != " << (uint32_t) outdata[aoff] << std::endl;
+            if (data[choff ^ 7] != outdata[aoff]) {
+              std::cout << "i:k " << i << ":" << k << " " << (uint32_t)data[choff ^ 7]
+                        << " != " << (uint32_t)outdata[aoff] << std::endl;
             }
           }
         }
@@ -159,19 +156,15 @@ namespace stripgpu {
     chanlocsGPU_.reset();
   }
 
-  SiStripClustersCUDA
-  SiStripRawToClusterGPUKernel::getResults(cudaStream_t stream)
-  {
+  SiStripClustersCUDA SiStripRawToClusterGPUKernel::getResults(cudaStream_t stream) {
     reset();
 
     return std::move(clusters_d_);
   }
 
-  void SiStripRawToClusterGPUKernel::reset()
-  {
+  void SiStripRawToClusterGPUKernel::reset() {
     fedRawDataHost_.reset();
     chanlocs_.reset();
     sst_data_d_.reset();
   }
-}
-
+}  // namespace stripgpu

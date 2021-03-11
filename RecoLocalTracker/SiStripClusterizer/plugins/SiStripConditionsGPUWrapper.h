@@ -10,11 +10,12 @@
 class DetToFed {
 public:
   DetToFed(stripgpu::detId_t detid, stripgpu::APVPair_t ipair, stripgpu::fedId_t fedid, stripgpu::fedCh_t fedch)
-    : detid_(detid), ipair_(ipair), fedid_(fedid), fedch_(fedch) {}
+      : detid_(detid), ipair_(ipair), fedid_(fedid), fedch_(fedch) {}
   stripgpu::detId_t detID() const { return detid_; }
   stripgpu::APVPair_t pair() const { return ipair_; }
   stripgpu::fedId_t fedID() const { return fedid_; }
   stripgpu::fedCh_t fedCh() const { return fedch_; }
+
 private:
   stripgpu::detId_t detid_;
   stripgpu::APVPair_t ipair_;
@@ -34,19 +35,20 @@ public:
   ~SiStripConditionsGPUWrapper();
 
   // Function to return the actual payload on the memory of the current device
-  SiStripConditionsGPU const *getGPUProductAsync(cudaStream_t stream) const;
+  SiStripConditionsGPU const* getGPUProductAsync(cudaStream_t stream) const;
 
   const DetToFeds& detToFeds() const { return detToFeds_; }
+
 private:
   // Holds the data in pinned CPU memory
-  SiStripConditionsGPU *conditions_ = nullptr;
+  SiStripConditionsGPU* conditions_ = nullptr;
 
   // Helper struct to hold all information that has to be allocated and
   // deallocated per device
   struct GPUData {
     // Destructor should free all member pointers
     ~GPUData();
-    SiStripConditionsGPU *conditionsDevice = nullptr;
+    SiStripConditionsGPU* conditionsDevice = nullptr;
   };
 
   // Helper that takes care of complexity of transferring the data to

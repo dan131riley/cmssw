@@ -34,7 +34,7 @@ public:
     __device__ __forceinline__ stripgpu::detId_t clusterDetId(int i) const { return __ldg(clusterDetId_ + i); }
     __device__ __forceinline__ stripgpu::stripId_t firstStrip(int i) const { return __ldg(firstStrip_ + i); }
     __device__ __forceinline__ bool trueCluster(int i) const { return trueCluster_[i]; }
-    __device__ __forceinline__ float barycenter(int i) const  { return __ldg(barycenter_ + i); }
+    __device__ __forceinline__ float barycenter(int i) const { return __ldg(barycenter_ + i); }
 
     friend SiStripClustersCUDA;
 
@@ -81,6 +81,5 @@ private:
 public:
   int nClusters_h;
 };
-
 
 #endif

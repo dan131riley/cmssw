@@ -7,8 +7,9 @@
 
 #include "SiStripConditionsGPUWrapper.h"
 
-SiStripConditionsGPUWrapper::SiStripConditionsGPUWrapper(const SiStripQuality& quality, const SiStripGain* gains, const SiStripNoises& noises)
-{
+SiStripConditionsGPUWrapper::SiStripConditionsGPUWrapper(const SiStripQuality& quality,
+                                                         const SiStripGain* gains,
+                                                         const SiStripNoises& noises) {
   cudaCheck(cudaMallocHost(&conditions_, sizeof(SiStripConditionsGPU)));
   detToFeds_.clear();
 
@@ -57,9 +58,8 @@ SiStripConditionsGPUWrapper::SiStripConditionsGPUWrapper(const SiStripQuality& q
     }
   }
 
-  std::sort(detToFeds_.begin(), detToFeds_.end(),
-    [](const DetToFed& a, const DetToFed& b){ 
-      return a.detID() < b.detID() || (a.detID() == b.detID() && a.pair() < b.pair());
+  std::sort(detToFeds_.begin(), detToFeds_.end(), [](const DetToFed& a, const DetToFed& b) {
+    return a.detID() < b.detID() || (a.detID() == b.detID() && a.pair() < b.pair());
   });
 }
 
@@ -69,16 +69,15 @@ SiStripConditionsGPUWrapper::~SiStripConditionsGPUWrapper() {
   }
 }
 
-SiStripConditionsGPU const *SiStripConditionsGPUWrapper::getGPUProductAsync(cudaStream_t stream) const {
+SiStripConditionsGPU const* SiStripConditionsGPUWrapper::getGPUProductAsync(cudaStream_t stream) const {
   auto const& data = gpuData_.dataForCurrentDeviceAsync(stream, [this](GPUData& data, cudaStream_t stream) {
     // Allocate the payload object on the device memory.
     cudaCheck(cudaMalloc(&data.conditionsDevice, sizeof(SiStripConditionsGPU)));
-    cudaCheck(cudaMemcpyAsync(data.conditionsDevice, conditions_, sizeof(SiStripConditionsGPU), cudaMemcpyDefault, stream));
+    cudaCheck(
+        cudaMemcpyAsync(data.conditionsDevice, conditions_, sizeof(SiStripConditionsGPU), cudaMemcpyDefault, stream));
   });
   // Returns the payload object on the memory of the current device
   return data.conditionsDevice;
 }
 
-SiStripConditionsGPUWrapper::GPUData::~GPUData() {
-  cudaCheck(cudaFree(conditionsDevice));
-}
+SiStripConditionsGPUWrapper::GPUData::~GPUData() { cudaCheck(cudaFree(conditionsDevice)); }

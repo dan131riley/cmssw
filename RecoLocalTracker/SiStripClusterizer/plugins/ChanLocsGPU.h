@@ -12,24 +12,30 @@
 
 class ChannelLocsGPU;
 
-template<template <typename> class T>
+template <template <typename> class T>
 class ChannelLocsBase {
 public:
   ChannelLocsBase(size_t size) : size_(size) {}
   ~ChannelLocsBase() {}
 
   ChannelLocsBase(ChannelLocsBase&& arg)
-    : input_(std::move(arg.input_)),
-      inoff_(std::move(arg.inoff_)),
-      offset_(std::move(arg.offset_)),
-      length_(std::move(arg.length_)),
-      fedID_(std::move(arg.fedID_)),
-      fedCh_(std::move(arg.fedCh_)),
-      detID_(std::move(arg.detID_)),
-      size_(arg.size_) {}
+      : input_(std::move(arg.input_)),
+        inoff_(std::move(arg.inoff_)),
+        offset_(std::move(arg.offset_)),
+        length_(std::move(arg.length_)),
+        fedID_(std::move(arg.fedID_)),
+        fedCh_(std::move(arg.fedCh_)),
+        detID_(std::move(arg.detID_)),
+        size_(arg.size_) {}
 
-  void setChannelLoc(uint32_t index, const uint8_t* input, size_t inoff, size_t offset, uint16_t length, stripgpu::fedId_t fedID, stripgpu::fedCh_t fedCh, stripgpu::detId_t detID)
-  {
+  void setChannelLoc(uint32_t index,
+                     const uint8_t* input,
+                     size_t inoff,
+                     size_t offset,
+                     uint16_t length,
+                     stripgpu::fedId_t fedID,
+                     stripgpu::fedCh_t fedCh,
+                     stripgpu::detId_t detID) {
     input_[index] = input;
     inoff_[index] = inoff;
     offset_[index] = offset;
@@ -58,10 +64,10 @@ public:
   stripgpu::detId_t* detID() const { return detID_.get(); }
 
 protected:
-  T<const uint8_t*[]> input_; // input raw data for channel
-  T<size_t[]> inoff_;         // offset in input raw data
-  T<size_t[]> offset_;        // global offset in alldata
-  T<uint16_t[]> length_;      // length of channel data
+  T<const uint8_t*[]> input_;  // input raw data for channel
+  T<size_t[]> inoff_;          // offset in input raw data
+  T<size_t[]> offset_;         // global offset in alldata
+  T<uint16_t[]> length_;       // length of channel data
   T<stripgpu::fedId_t[]> fedID_;
   T<stripgpu::fedCh_t[]> fedCh_;
   T<stripgpu::detId_t[]> detID_;
@@ -70,6 +76,7 @@ protected:
 
 class ChannelLocs : public ChannelLocsBase<cms::cuda::host::unique_ptr> {
   friend class ChannelLocsGPU;
+
 public:
   ChannelLocs(size_t size, cudaStream_t stream);
   ChannelLocs(ChannelLocs&& arg) : ChannelLocsBase(std::move(arg)) {}
@@ -89,11 +96,10 @@ struct ChanLocStruct {
   __host__ __device__ stripgpu::fedCh_t fedCh(uint32_t index) const { return fedCh_[index]; }
   __host__ __device__ stripgpu::detId_t detID(uint32_t index) const { return detID_[index]; }
 
-
-  const uint8_t** input_; // input raw data for channel
-  size_t* inoff_;         // offset in input raw data
-  size_t* offset_;        // global offset in alldata
-  uint16_t* length_;      // length of channel data
+  const uint8_t** input_;  // input raw data for channel
+  size_t* inoff_;          // offset in input raw data
+  size_t* offset_;         // global offset in alldata
+  uint16_t* length_;       // length of channel data
   stripgpu::fedId_t* fedID_;
   stripgpu::fedCh_t* fedCh_;
   stripgpu::detId_t* detID_;
@@ -104,11 +110,11 @@ class ChannelLocsGPU : public ChannelLocsBase<cms::cuda::device::unique_ptr> {
 public:
   //using Base = ChannelLocsBase<cms::cuda::device::unique_ptr>;
   ChannelLocsGPU(size_t size, cudaStream_t stream);
-  ChannelLocsGPU(ChannelLocsGPU&& arg)
-    : ChannelLocsBase(std::move(arg)), chanstruct_(std::move(arg.chanstruct_)) {}
+  ChannelLocsGPU(ChannelLocsGPU&& arg) : ChannelLocsBase(std::move(arg)), chanstruct_(std::move(arg.chanstruct_)) {}
   ~ChannelLocsGPU();
   void setvals(const ChannelLocs* c, const std::vector<uint8_t*>& inputGPU, cudaStream_t stream);
   const ChanLocStruct* chanLocStruct() const { return chanstruct_.get(); }
+
 private:
   cms::cuda::device::unique_ptr<ChanLocStruct> chanstruct_;
 };
@@ -137,9 +143,5 @@ inline FEDChannel::FEDChannel(const uint8_t* const data, const size_t offset) : 
   length_ = (data_[(offset_) ^ 7] + (data_[(offset_ + 1) ^ 7] << 8));
 }
 
-inline FEDChannel::FEDChannel(const uint8_t*const data, const size_t offset, const uint16_t length)
-  : data_(data),
-    offset_(offset),
-    length_(length)
-{
-}
+inline FEDChannel::FEDChannel(const uint8_t* const data, const size_t offset, const uint16_t length)
+    : data_(data), offset_(offset), length_(length) {}

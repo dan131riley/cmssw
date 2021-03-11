@@ -54,8 +54,8 @@ namespace stripgpu {
     void allocateSSTDataGPU(int max_strips, cudaStream_t stream);
     void freeSSTDataGPU(cudaStream_t stream);
 
-    void setSeedStripsNCIndexGPU(const SiStripConditionsGPU *conditions, cudaStream_t stream);
-    void findClusterGPU(const SiStripConditionsGPU *conditions, cudaStream_t stream);
+    void setSeedStripsNCIndexGPU(const SiStripConditionsGPU* conditions, cudaStream_t stream);
+    void findClusterGPU(const SiStripConditionsGPU* conditions, cudaStream_t stream);
 
     std::vector<stripgpu::fedId_t> fedIndex_;
     std::vector<size_t> fedRawDataOffsets_;
@@ -74,5 +74,5 @@ namespace stripgpu {
     uint8_t MaxSequentialHoles_, MaxSequentialBad_, MaxAdjacentBad_;
     float minGoodCharge_;
   };
-}
+}  // namespace stripgpu
 #endif

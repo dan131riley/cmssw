@@ -5,13 +5,13 @@ MkFitSiStripClustersCUDA::MkFitSiStripClustersCUDA(size_t maxClusters, int clust
   clusterDetId_d = cms::cuda::make_device_unique<stripgpu::detId_t[]>(maxClusters, stream);
   barycenter_d = cms::cuda::make_device_unique<float[]>(maxClusters, stream);
 
-  local_xx_d  = cms::cuda::make_device_unique<float[]>(maxClusters, stream);
-  local_xy_d  = cms::cuda::make_device_unique<float[]>(maxClusters, stream);
-  local_yy_d  = cms::cuda::make_device_unique<float[]>(maxClusters, stream);
-  local_d  = cms::cuda::make_device_unique<float[]>(maxClusters, stream);
-  global_x_d  = cms::cuda::make_device_unique<float[]>(maxClusters, stream);
-  global_y_d  = cms::cuda::make_device_unique<float[]>(maxClusters, stream);
-  global_z_d  = cms::cuda::make_device_unique<float[]>(maxClusters, stream);
+  local_xx_d = cms::cuda::make_device_unique<float[]>(maxClusters, stream);
+  local_xy_d = cms::cuda::make_device_unique<float[]>(maxClusters, stream);
+  local_yy_d = cms::cuda::make_device_unique<float[]>(maxClusters, stream);
+  local_d = cms::cuda::make_device_unique<float[]>(maxClusters, stream);
+  global_x_d = cms::cuda::make_device_unique<float[]>(maxClusters, stream);
+  global_y_d = cms::cuda::make_device_unique<float[]>(maxClusters, stream);
+  global_z_d = cms::cuda::make_device_unique<float[]>(maxClusters, stream);
   global_xx_d = cms::cuda::make_device_unique<float[]>(maxClusters, stream);
   global_xy_d = cms::cuda::make_device_unique<float[]>(maxClusters, stream);
   global_xz_d = cms::cuda::make_device_unique<float[]>(maxClusters, stream);
@@ -35,7 +35,7 @@ MkFitSiStripClustersCUDA::MkFitSiStripClustersCUDA(size_t maxClusters, int clust
   gview->global_yy_ = global_yy_d.get();
   gview->global_yz_ = global_yz_d.get();
   gview->global_zz_ = global_zz_d.get();
-  gview->barycenter_ = barycenter_d.get();//to remove Tres
+  gview->barycenter_ = barycenter_d.get();  //to remove Tres
   gview->clusterDetId_ = clusterDetId_d.get();
 
   gview->layer_ = layer_d.get();
@@ -47,14 +47,14 @@ MkFitSiStripClustersCUDA::MkFitSiStripClustersCUDA(size_t maxClusters, int clust
 MkFitSiStripClustersCUDA::HostView::HostView(size_t maxClusters, int clustersPerStrip, cudaStream_t stream) {
   clusterDetId_h = cms::cuda::make_host_unique<stripgpu::detId_t[]>(maxClusters, stream);
   barycenter_h = cms::cuda::make_host_unique<float[]>(maxClusters, stream);
-  
-  local_xx_h  = cms::cuda::make_host_unique<float[]>(maxClusters, stream);
-  local_xy_h  = cms::cuda::make_host_unique<float[]>(maxClusters, stream);
-  local_yy_h  = cms::cuda::make_host_unique<float[]>(maxClusters, stream);
-  local_h  = cms::cuda::make_host_unique<float[]>(maxClusters, stream);
-  global_x_h  = cms::cuda::make_host_unique<float[]>(maxClusters, stream);
-  global_y_h  = cms::cuda::make_host_unique<float[]>(maxClusters, stream);
-  global_z_h  = cms::cuda::make_host_unique<float[]>(maxClusters, stream);
+
+  local_xx_h = cms::cuda::make_host_unique<float[]>(maxClusters, stream);
+  local_xy_h = cms::cuda::make_host_unique<float[]>(maxClusters, stream);
+  local_yy_h = cms::cuda::make_host_unique<float[]>(maxClusters, stream);
+  local_h = cms::cuda::make_host_unique<float[]>(maxClusters, stream);
+  global_x_h = cms::cuda::make_host_unique<float[]>(maxClusters, stream);
+  global_y_h = cms::cuda::make_host_unique<float[]>(maxClusters, stream);
+  global_z_h = cms::cuda::make_host_unique<float[]>(maxClusters, stream);
   global_xx_h = cms::cuda::make_host_unique<float[]>(maxClusters, stream);
   global_xy_h = cms::cuda::make_host_unique<float[]>(maxClusters, stream);
   global_xz_h = cms::cuda::make_host_unique<float[]>(maxClusters, stream);
@@ -67,12 +67,13 @@ MkFitSiStripClustersCUDA::HostView::HostView(size_t maxClusters, int clustersPer
   nClusters_h = maxClusters;
 }
 
-std::unique_ptr<MkFitSiStripClustersCUDA::HostView> MkFitSiStripClustersCUDA::hostView(int clustersPerStrip, cudaStream_t stream) const {
+std::unique_ptr<MkFitSiStripClustersCUDA::HostView> MkFitSiStripClustersCUDA::hostView(int clustersPerStrip,
+                                                                                       cudaStream_t stream) const {
   auto view_h = std::make_unique<HostView>(nClusters_h, clustersPerStrip, stream);
 
   cms::cuda::copyAsync(view_h->clusterDetId_h, clusterDetId_d, nClusters_h, stream);
   cms::cuda::copyAsync(view_h->barycenter_h, barycenter_d, nClusters_h, stream);
-  
+
   cms::cuda::copyAsync(view_h->local_xx_h, local_xx_d, nClusters_h, stream);
   cms::cuda::copyAsync(view_h->local_xy_h, local_xy_d, nClusters_h, stream);
   cms::cuda::copyAsync(view_h->local_yy_h, local_yy_d, nClusters_h, stream);

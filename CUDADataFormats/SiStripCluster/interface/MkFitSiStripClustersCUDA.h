@@ -26,24 +26,23 @@ public:
 
   class GlobalDeviceView {
   public:
+    __device__ __forceinline__ float local_xx(int i) const { return __ldg(local_xx_ + i); }
+    __device__ __forceinline__ float local_xy(int i) const { return __ldg(local_xy_ + i); }
+    __device__ __forceinline__ float local_yy(int i) const { return __ldg(local_yy_ + i); }
+    __device__ __forceinline__ float local(int i) const { return __ldg(local_ + i); }
+    __device__ __forceinline__ float global_x(int i) const { return __ldg(global_x_ + i); }
+    __device__ __forceinline__ float global_y(int i) const { return __ldg(global_y_ + i); }
+    __device__ __forceinline__ float global_z(int i) const { return __ldg(global_z_ + i); }
 
-    __device__ __forceinline__ float local_xx(int i) const  { return __ldg(local_xx_ + i); }
-    __device__ __forceinline__ float local_xy(int i) const  { return __ldg(local_xy_ + i); }
-    __device__ __forceinline__ float local_yy(int i) const  { return __ldg(local_yy_ + i); }
-    __device__ __forceinline__ float local(int i) const  { return __ldg(local_ + i); }
-    __device__ __forceinline__ float global_x(int i) const  { return __ldg(global_x_ + i); }
-    __device__ __forceinline__ float global_y(int i) const  { return __ldg(global_y_ + i); }
-    __device__ __forceinline__ float global_z(int i) const  { return __ldg(global_z_ + i); }
+    __device__ __forceinline__ float global_xx(int i) const { return __ldg(global_xx_ + i); }
+    __device__ __forceinline__ float global_xy(int i) const { return __ldg(global_xy_ + i); }
+    __device__ __forceinline__ float global_xz(int i) const { return __ldg(global_xz_ + i); }
+    __device__ __forceinline__ float global_yy(int i) const { return __ldg(global_yy_ + i); }
+    __device__ __forceinline__ float global_yz(int i) const { return __ldg(global_yz_ + i); }
+    __device__ __forceinline__ float global_zz(int i) const { return __ldg(global_zz_ + i); }
 
-    __device__ __forceinline__ float global_xx(int i) const  { return __ldg(global_xx_ + i); }
-    __device__ __forceinline__ float global_xy(int i) const  { return __ldg(global_xy_ + i); }
-    __device__ __forceinline__ float global_xz(int i) const  { return __ldg(global_xz_ + i); }
-    __device__ __forceinline__ float global_yy(int i) const  { return __ldg(global_yy_ + i); }
-    __device__ __forceinline__ float global_yz(int i) const  { return __ldg(global_yz_ + i); }
-    __device__ __forceinline__ float global_zz(int i) const  { return __ldg(global_zz_ + i); }
-
-    __device__ __forceinline__ short layer(int i) const  { return __ldg(layer_ + i); }
-    __device__ __forceinline__ float barycenter(int i) const  { return __ldg(barycenter_ + i); } // to remove Tres
+    __device__ __forceinline__ short layer(int i) const { return __ldg(layer_ + i); }
+    __device__ __forceinline__ float barycenter(int i) const { return __ldg(barycenter_ + i); }  // to remove Tres
     __device__ __forceinline__ stripgpu::detId_t clusterDetId(int i) const { return __ldg(clusterDetId_ + i); }
 
     friend MkFitSiStripClustersCUDA;
@@ -67,7 +66,7 @@ public:
     float *global_zz_;
 
     short *layer_;
-    float *barycenter_; // to remove Tres
+    float *barycenter_;  // to remove Tres
     stripgpu::detId_t *clusterDetId_;
   };
 
@@ -125,6 +124,5 @@ private:
 public:
   int nClusters_h;
 };
-
 
 #endif

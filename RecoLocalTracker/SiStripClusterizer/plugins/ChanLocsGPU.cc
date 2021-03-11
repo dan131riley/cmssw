@@ -6,9 +6,7 @@
 
 #include "ChanLocsGPU.h"
 
-ChannelLocs::ChannelLocs(size_t size, cudaStream_t stream)
-  : ChannelLocsBase(size)
-{
+ChannelLocs::ChannelLocs(size_t size, cudaStream_t stream) : ChannelLocsBase(size) {
   if (size > 0) {
     input_ = cms::cuda::make_host_unique<const uint8_t*[]>(size, stream);
     inoff_ = cms::cuda::make_host_unique<size_t[]>(size, stream);
@@ -22,8 +20,7 @@ ChannelLocs::ChannelLocs(size_t size, cudaStream_t stream)
 
 ChannelLocs::~ChannelLocs() {}
 
-void ChanLocStruct::Fill(const ChannelLocsGPU& c)
-{
+void ChanLocStruct::Fill(const ChannelLocsGPU& c) {
   input_ = c.input();
   inoff_ = c.inoff();
   offset_ = c.offset();
@@ -34,9 +31,7 @@ void ChanLocStruct::Fill(const ChannelLocsGPU& c)
   size_ = c.size();
 }
 
-ChannelLocsGPU::ChannelLocsGPU(size_t size, cudaStream_t stream)
-  : ChannelLocsBase(size)
-{
+ChannelLocsGPU::ChannelLocsGPU(size_t size, cudaStream_t stream) : ChannelLocsBase(size) {
   if (size > 0) {
     input_ = cms::cuda::make_device_unique<const uint8_t*[]>(size, stream);
     inoff_ = cms::cuda::make_device_unique<size_t[]>(size, stream);
@@ -53,10 +48,9 @@ ChannelLocsGPU::ChannelLocsGPU(size_t size, cudaStream_t stream)
   }
 }
 
-void ChannelLocsGPU::setvals(const ChannelLocs* c, const std::vector<uint8_t*>& inputGPU, cudaStream_t stream)
-{
+void ChannelLocsGPU::setvals(const ChannelLocs* c, const std::vector<uint8_t*>& inputGPU, cudaStream_t stream) {
   assert(c->size() == size_);
-  cudaCheck(cudaMemcpyAsync(input_.get(), inputGPU.data(), sizeof(uint8_t*)*size_, cudaMemcpyDefault, stream));
+  cudaCheck(cudaMemcpyAsync(input_.get(), inputGPU.data(), sizeof(uint8_t*) * size_, cudaMemcpyDefault, stream));
   cms::cuda::copyAsync(inoff_, c->inoff_, size_, stream);
   cms::cuda::copyAsync(offset_, c->offset_, size_, stream);
   cms::cuda::copyAsync(length_, c->length_, size_, stream);
@@ -65,6 +59,4 @@ void ChannelLocsGPU::setvals(const ChannelLocs* c, const std::vector<uint8_t*>& 
   cms::cuda::copyAsync(detID_, c->detID_, size_, stream);
 }
 
-ChannelLocsGPU::~ChannelLocsGPU()
-{
-}
+ChannelLocsGPU::~ChannelLocsGPU() {}

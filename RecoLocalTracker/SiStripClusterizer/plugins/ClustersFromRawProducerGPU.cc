@@ -42,58 +42,54 @@ namespace {
 
     // Check on FEDRawData pointer
     const auto st_buffer = sistrip::preconstructCheckFEDBuffer(rawData);
-    if
-      UNLIKELY(sistrip::FEDBufferStatusCode::SUCCESS != st_buffer) {
-        if (edm::isDebugEnabled()) {
-          edm::LogWarning(sistrip::mlRawToCluster_)
-              << "[ClustersFromRawProducer::" << __func__ << "]" << st_buffer << " for FED ID " << fedId;
-        }
-        return buffer;
+    if UNLIKELY (sistrip::FEDBufferStatusCode::SUCCESS != st_buffer) {
+      if (edm::isDebugEnabled()) {
+        edm::LogWarning(sistrip::mlRawToCluster_)
+            << "[ClustersFromRawProducer::" << __func__ << "]" << st_buffer << " for FED ID " << fedId;
       }
+      return buffer;
+    }
     buffer = std::make_unique<sistrip::FEDBuffer>(rawData);
     const auto st_chan = buffer->findChannels();
-    if
-      UNLIKELY(sistrip::FEDBufferStatusCode::SUCCESS != st_chan) {
-        if (edm::isDebugEnabled()) {
-          edm::LogWarning(sistrip::mlRawToCluster_)
-              << "Exception caught when creating FEDBuffer object for FED " << fedId << ": " << st_chan;
-        }
-        buffer.reset();
-        return buffer;
+    if UNLIKELY (sistrip::FEDBufferStatusCode::SUCCESS != st_chan) {
+      if (edm::isDebugEnabled()) {
+        edm::LogWarning(sistrip::mlRawToCluster_)
+            << "Exception caught when creating FEDBuffer object for FED " << fedId << ": " << st_chan;
       }
-    if
-      UNLIKELY(!buffer->doChecks(false)) {
-        if (edm::isDebugEnabled()) {
-          edm::LogWarning(sistrip::mlRawToCluster_)
-              << "Exception caught when creating FEDBuffer object for FED " << fedId << ": FED Buffer check fails";
-        }
-        buffer.reset();
-        return buffer;
-      }
-
+      buffer.reset();
       return buffer;
+    }
+    if UNLIKELY (!buffer->doChecks(false)) {
+      if (edm::isDebugEnabled()) {
+        edm::LogWarning(sistrip::mlRawToCluster_)
+            << "Exception caught when creating FEDBuffer object for FED " << fedId << ": FED Buffer check fails";
+      }
+      buffer.reset();
+      return buffer;
+    }
+
+    return buffer;
   }
-} // namespace
+}  // namespace
 
 class SiStripClusterizerFromRawGPU final : public edm::stream::EDProducer<edm::ExternalWork> {
 public:
   explicit SiStripClusterizerFromRawGPU(const edm::ParameterSet& conf)
-      : buffers(1024),
-        raw(1024),
-        gpuAlgo_(conf.getParameter<edm::ParameterSet>("Clusterizer")) {
+      : buffers(1024), raw(1024), gpuAlgo_(conf.getParameter<edm::ParameterSet>("Clusterizer")) {
     inputToken_ = consumes<FEDRawDataCollection>(conf.getParameter<edm::InputTag>("ProductLabel"));
     outputToken_ = produces<cms::cuda::Product<SiStripClustersCUDA>>();
 
     conditionsToken_ = esConsumes<SiStripConditionsGPUWrapper, SiStripClusterizerGPUConditionsRcd>(
-                                        edm::ESInputTag{"", conf.getParameter<std::string>("ConditionsLabel")});
+        edm::ESInputTag{"", conf.getParameter<std::string>("ConditionsLabel")});
     CPUconditionsToken_ = esConsumes<SiStripClusterizerConditions, SiStripClusterizerConditionsRcd>(
-                                        edm::ESInputTag{"", conf.getParameter<std::string>("ConditionsLabel")});
+        edm::ESInputTag{"", conf.getParameter<std::string>("ConditionsLabel")});
   }
 
-  void beginRun(const edm::Run&, const edm::EventSetup& es) override { 
-  }
+  void beginRun(const edm::Run&, const edm::EventSetup& es) override {}
 
-  void acquire(edm::Event const& ev, edm::EventSetup const& es, edm::WaitingTaskWithArenaHolder waitingTaskHolder) override {
+  void acquire(edm::Event const& ev,
+               edm::EventSetup const& es,
+               edm::WaitingTaskWithArenaHolder waitingTaskHolder) override {
     const auto& conditions = es.getData(conditionsToken_);
     const auto& CPUconditions = es.getData(CPUconditionsToken_);
 
@@ -149,29 +145,32 @@ private:
 #include "FWCore/Framework/interface/MakerMacros.h"
 DEFINE_FWK_MODULE(SiStripClusterizerFromRawGPU);
 
-void SiStripClusterizerFromRawGPU::run(const FEDRawDataCollection& rawColl, const SiStripClusterizerConditions& conditions) {
+void SiStripClusterizerFromRawGPU::run(const FEDRawDataCollection& rawColl,
+                                       const SiStripClusterizerConditions& conditions) {
   // loop over good det in cabling
   for (auto idet : conditions.allDetIds()) {
     fill(idet, rawColl, conditions);
   }  // end loop over dets
 }
 
-void SiStripClusterizerFromRawGPU::fill(uint32_t idet, const FEDRawDataCollection& rawColl, const SiStripClusterizerConditions& conditions) {
-
+void SiStripClusterizerFromRawGPU::fill(uint32_t idet,
+                                        const FEDRawDataCollection& rawColl,
+                                        const SiStripClusterizerConditions& conditions) {
   auto const& det = conditions.findDetId(idet);
   if (!det.valid())
     return;
 
   // Loop over apv-pairs of det
   for (auto const conn : conditions.currentConnection(det)) {
-    if
-      UNLIKELY(!conn) continue;
+    if UNLIKELY (!conn)
+      continue;
 
     const uint16_t fedId = conn->fedId();
 
     // If fed id is null or connection is invalid continue
-    if
-      UNLIKELY(!fedId || !conn->isConnected()) { continue; }
+    if UNLIKELY (!fedId || !conn->isConnected()) {
+      continue;
+    }
 
     // If Fed hasnt already been initialised, extract data and initialise
     sistrip::FEDBuffer* buffer = buffers[fedId].get();

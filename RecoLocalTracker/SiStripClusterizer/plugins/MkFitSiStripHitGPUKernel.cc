@@ -33,13 +33,33 @@ namespace stripgpu {
     }
   }
 
-  void MkFitSiStripHitGPUKernel::loadBarrel(const std::vector<const GeometricDet*> dets_barrel, /*const std::vector<const GeomDet*> rots_barrel,*/ const SiStripBackPlaneCorrection* BackPlaneCorrectionMap, const MagneticField* MagFieldMap,const SiStripLorentzAngle* LorentzAngleMap, const std::vector<std::tuple<unsigned int, float, float , float, float, float , float, float, float , float, float, float , float, float, float , float>> stripUnit){
+  void MkFitSiStripHitGPUKernel::loadBarrel(
+      const std::vector<const GeometricDet*> dets_barrel,
+      /*const std::vector<const GeomDet*> rots_barrel,*/ const SiStripBackPlaneCorrection* BackPlaneCorrectionMap,
+      const MagneticField* MagFieldMap,
+      const SiStripLorentzAngle* LorentzAngleMap,
+      const std::vector<std::tuple<unsigned int,
+                                   float,
+                                   float,
+                                   float,
+                                   float,
+                                   float,
+                                   float,
+                                   float,
+                                   float,
+                                   float,
+                                   float,
+                                   float,
+                                   float,
+                                   float,
+                                   float,
+                                   float>> stripUnit) {
     printf("LOADING BARREL\n");
     auto indexer3_h = localToGlobalMap_h->indexer3;
     auto indexer5_h = localToGlobalMap_h->indexer5;
 
-    cudaMemset(indexer3_h,-1,sizeof(LocalToGlobalMap_h::indexer3));
-    cudaMemset(indexer5_h,-1,sizeof(LocalToGlobalMap_h::indexer5));
+    cudaMemset(indexer3_h, -1, sizeof(LocalToGlobalMap_h::indexer3));
+    cudaMemset(indexer5_h, -1, sizeof(LocalToGlobalMap_h::indexer5));
 
     int* det_num_h = localToGlobalMap_h->det_num_bd;
     double* pitch_h = localToGlobalMap_h->pitch_bd;
@@ -58,47 +78,53 @@ namespace stripgpu {
     double* thickness_h = localToGlobalMap_h->thickness_bd;
     double* drift_x_h = localToGlobalMap_h->drift_x_bd;
 
-    for (auto it = dets_barrel.begin(); it != dets_barrel.end();++it){
-      int i = std::distance(dets_barrel.begin(),it);
+    for (auto it = dets_barrel.begin(); it != dets_barrel.end(); ++it) {
+      int i = std::distance(dets_barrel.begin(), it);
       const GeometricDet* det = dets_barrel[i];
       det_num_h[i] = det->geographicalId().rawId();
 
-      int nstrip = int(128* det->siliconAPVNum());
+      int nstrip = int(128 * det->siliconAPVNum());
       std::unique_ptr<const Bounds> bounds(det->bounds());
       len_h[i] = bounds->length();
       double width = bounds->width();
       thickness_h[i] = bounds->thickness();
-      pitch_h[i] = width/nstrip;
-      offset_h[i] = -0.5*width;
+      pitch_h[i] = width / nstrip;
+      offset_h[i] = -0.5 * width;
       int sub = (det_num_h[i] >> 25) & 0x7;
-      if(sub == 3){
+      if (sub == 3) {
         indexer3_h[index_lookup3(det_num_h[i])] = i;
-      }else if(sub == 5){
+      } else if (sub == 5) {
         indexer5_h[index_lookup5(det_num_h[i])] = i;
       }
     }
 
-    for (auto it = stripUnit.begin(); it != stripUnit.end();++it){
-      int j = std::distance(stripUnit.begin(),it);
+    for (auto it = stripUnit.begin(); it != stripUnit.end(); ++it) {
+      int j = std::distance(stripUnit.begin(), it);
       const auto dus = stripUnit[j];
-      
+
       auto rot_num = std::get<0>(dus);
       int i = -1;
       int sub = (rot_num >> 25) & 0x7;
-      if(sub == 3){
+      if (sub == 3) {
         int lookup = index_lookup3(rot_num);
-        if(lookup > 31214) {continue;}
+        if (lookup > 31214) {
+          continue;
+        }
         i = indexer3_h[lookup];
       }
-      if(sub == 5){
+      if (sub == 5) {
         int lookup = index_lookup5(rot_num);
-        if(lookup > 46426) {continue;}
+        if (lookup > 46426) {
+          continue;
+        }
         i = indexer5_h[lookup];
       }
-      if (i == -1){ continue;}
+      if (i == -1) {
+        continue;
+      }
       backPlane_h[i] = BackPlaneCorrectionMap->getBackPlaneCorrection(rot_num);
       double lorentzAngle = LorentzAngleMap->getLorentzAngle(rot_num);
-      drift_x_h[i] = -lorentzAngle*std::get<2>(dus);
+      drift_x_h[i] = -lorentzAngle * std::get<2>(dus);
       pos_x_h[i] = std::get<4>(dus);
       pos_y_h[i] = std::get<5>(dus);
       pos_z_h[i] = std::get<6>(dus);
@@ -111,12 +137,32 @@ namespace stripgpu {
     }
   }
 
-  void MkFitSiStripHitGPUKernel::loadEndcap(const std::vector<const GeometricDet*> dets_endcap, /*const std::vector<const GeomDet*> rots_endcap,*/ const SiStripBackPlaneCorrection* BackPlaneCorrectionMap, const MagneticField* MagFieldMap,const SiStripLorentzAngle* LorentzAngleMap, const std::vector<std::tuple<unsigned int, float, float , float, float, float , float, float, float , float, float, float , float, float, float , float>> stripUnit){
+  void MkFitSiStripHitGPUKernel::loadEndcap(
+      const std::vector<const GeometricDet*> dets_endcap,
+      /*const std::vector<const GeomDet*> rots_endcap,*/ const SiStripBackPlaneCorrection* BackPlaneCorrectionMap,
+      const MagneticField* MagFieldMap,
+      const SiStripLorentzAngle* LorentzAngleMap,
+      const std::vector<std::tuple<unsigned int,
+                                   float,
+                                   float,
+                                   float,
+                                   float,
+                                   float,
+                                   float,
+                                   float,
+                                   float,
+                                   float,
+                                   float,
+                                   float,
+                                   float,
+                                   float,
+                                   float,
+                                   float>> stripUnit) {
     printf("LOADING EndCap\n");
     short* indexer4_h = localToGlobalMap_h->indexer4;
     short* indexer6_h = localToGlobalMap_h->indexer6;
-    cudaMemset(indexer4_h,-1,sizeof(LocalToGlobalMap::indexer4));
-    cudaMemset(indexer6_h,-1,sizeof(LocalToGlobalMap::indexer6));
+    cudaMemset(indexer4_h, -1, sizeof(LocalToGlobalMap::indexer4));
+    cudaMemset(indexer6_h, -1, sizeof(LocalToGlobalMap::indexer6));
 
     int* det_num_h = localToGlobalMap_h->det_num_ed;
     int* yAx_h = localToGlobalMap_h->yAx_ed;
@@ -138,51 +184,57 @@ namespace stripgpu {
     double* R22_h = localToGlobalMap_h->R22_ed;
     double* R23_h = localToGlobalMap_h->R23_ed;
 
-    for (auto it = dets_endcap.begin(); it != dets_endcap.end();++it){
-      int i = std::distance(dets_endcap.begin(),it);
+    for (auto it = dets_endcap.begin(); it != dets_endcap.end(); ++it) {
+      int i = std::distance(dets_endcap.begin(), it);
       const GeometricDet* det = dets_endcap[i];
       det_num_h[i] = det->geographicalId().rawId();
 
-      int nstrip = int(128 *det->siliconAPVNum());
+      int nstrip = int(128 * det->siliconAPVNum());
       std::unique_ptr<const Bounds> bounds(det->bounds());
       yAx_h[i] = (dynamic_cast<const TrapezoidalPlaneBounds*>(&(*bounds)))->yAxisOrientation();
       len_h[i] = bounds->length();
       thickness_h[i] = bounds->thickness();
       float width = bounds->width();
       float w_halfl = bounds->widthAtHalfLength();
-      rCross_h[i] = w_halfl * len_h[i]/(2*(width-w_halfl));
-      aw_h[i] = atan2(w_halfl/2., static_cast<float>(rCross_h[i]))/(nstrip/2);
-      phi_h[i] = -(0.5 *nstrip) *aw_h[i];
+      rCross_h[i] = w_halfl * len_h[i] / (2 * (width - w_halfl));
+      aw_h[i] = atan2(w_halfl / 2., static_cast<float>(rCross_h[i])) / (nstrip / 2);
+      phi_h[i] = -(0.5 * nstrip) * aw_h[i];
 
       int sub = (det_num_h[i] >> 25) & 0x7;
-      if(sub == 4){
+      if (sub == 4) {
         indexer4_h[index_lookup4(det_num_h[i])] = i;
-      }else if(sub == 6){
+      } else if (sub == 6) {
         indexer6_h[index_lookup6(det_num_h[i])] = i;
       }
     }
-    for (auto it = stripUnit.begin(); it != stripUnit.end();++it){
-      int j = std::distance(stripUnit.begin(),it);
+    for (auto it = stripUnit.begin(); it != stripUnit.end(); ++it) {
+      int j = std::distance(stripUnit.begin(), it);
       const auto dus = stripUnit[j];
-      
+
       auto rot_num = std::get<0>(dus);
       int i = -1;
       int sub = (rot_num >> 25) & 0x7;
-      if(sub == 4){
+      if (sub == 4) {
         int lookup = index_lookup4(rot_num);
-        if (lookup > 16208){continue;}
+        if (lookup > 16208) {
+          continue;
+        }
         i = indexer4_h[lookup];
       }
-      if(sub == 6){
+      if (sub == 6) {
         int lookup = index_lookup6(rot_num);
-        if (lookup > 145652){continue;}
+        if (lookup > 145652) {
+          continue;
+        }
         i = indexer6_h[lookup];
       }
-      if (i == -1){ continue;}
+      if (i == -1) {
+        continue;
+      }
       backPlane_h[i] = BackPlaneCorrectionMap->getBackPlaneCorrection(rot_num);
       double lorentzAngle = LorentzAngleMap->getLorentzAngle(rot_num);
-      drift_x_h[i] = -lorentzAngle*std::get<2>(dus);
-      drift_y_h[i] = lorentzAngle*std::get<1>(dus);
+      drift_x_h[i] = -lorentzAngle * std::get<2>(dus);
+      drift_y_h[i] = lorentzAngle * std::get<1>(dus);
       pos_x_h[i] = std::get<4>(dus);
       pos_y_h[i] = std::get<5>(dus);
       pos_z_h[i] = std::get<6>(dus);
@@ -194,10 +246,9 @@ namespace stripgpu {
       R23_h[i] = std::get<12>(dus);
     }
   }
-  const LocalToGlobalMap* MkFitSiStripHitGPUKernel::toDevice()
-  {
+  const LocalToGlobalMap* MkFitSiStripHitGPUKernel::toDevice() {
     cudaCheck(cudaMalloc(&localToGlobalMap_d, sizeof(localToGlobalMap)));
     cudaCheck(cudaMemcpy(localToGlobalMap_d, localToGlobalMap_h, cudaMemcpyDefault));
     return localToGlobalMap_d;
   }
-}
+}  // namespace stripgpu
