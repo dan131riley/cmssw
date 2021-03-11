@@ -1,28 +1,5 @@
-#if 0
-#include "HeterogeneousCore/CUDAUtilities/interface/allocate_device.h"
-#include "HeterogeneousCore/CUDAUtilities/interface/allocate_host.h"
-#include "HeterogeneousCore/CUDAUtilities/interface/currentDevice.h"
-
-#include "HeterogeneousCore/CUDAUtilities/interface/host_unique_ptr.h"
-#include "HeterogeneousCore/CUDAUtilities/interface/device_unique_ptr.h"
-
-#include "HeterogeneousCore/CUDAUtilities/interface/copyAsync.h"
-
-#include "ChanLocsGPU.h"
-#include "SiStripRawToClusterGPUKernel.h"
-
-#include "Geometry/CommonTopologies/interface/BowedSurfaceDeformation.h"
-#include "Geometry/CommonTopologies/interface/SurfaceDeformation.h"
-#include "Geometry/CommonTopologies/interface/StripTopology.h"
-#include "Geometry/CommonTopologies/interface/GeomDet.h"
-#include "Geometry/TrackerNumberingBuilder/interface/GeometricDet.h"
-#include "DataFormats/GeometrySurface/interface/Bounds.h"
-#include "DataFormats/GeometrySurface/interface/TrapezoidalPlaneBounds.h"
-#include "CondFormats/SiStripObjects/interface/SiStripBackPlaneCorrection.h"
-#include "MagneticField/Engine/interface/MagneticField.h"
-#include "Geometry/TrackerGeometryBuilder/interface/TrackerGeometry.h"
-#include "Geometry/TrackerGeometryBuilder/interface/StripGeomDetUnit.h"
-#endif
+#include "CUDADataFormats/SiStripCluster/interface/MkFitSiStripClustersCUDA.h"
+#include "CUDADataFormats/SiStripCluster/interface/SiStripClustersCUDA.h"
 
 #include "MkFitSiStripHitGPUKernel.h"
 #include "localToGlobal.cuh"
@@ -431,7 +408,7 @@ namespace stripgpu {
       double rCross = map_d->rCross_ed[i];
       double aw = map_d->aw_ed[i];
       double phi = map_d->phi_ed[i];
-      double length = len_ed[i];
+      double length = map_d->len_ed[i];
       double pos_x = map_d->pos_x_ed[i];
       double pos_y = map_d->pos_y_ed[i];
       double pos_z = map_d->pos_z_ed[i];

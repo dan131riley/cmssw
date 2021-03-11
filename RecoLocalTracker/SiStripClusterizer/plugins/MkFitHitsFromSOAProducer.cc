@@ -14,11 +14,15 @@
 #include "HeterogeneousCore/CUDACore/interface/ScopedContext.h"
 #include "HeterogeneousCore/CUDAServices/interface/CUDAService.h"
 
+#include "CUDADataFormats/SiStripCluster/interface/MkFitSiStripClustersCUDA.h"
+#include "CUDADataFormats/SiStripCluster/interface/SiStripClustersCUDA.h"
+
 //#include "clusterGPU.cuh"
 //#include "localToGlobal.cuh"
 
 #include <memory>
 
+#include "Geometry/TrackerNumberingBuilder/interface/GeometricDet.h"
 #include "DataFormats/TrackerCommon/interface/TrackerTopology.h"
 #include "Geometry/Records/interface/TrackerTopologyRcd.h"
 #include "DataFormats/TrackerCommon/interface/TrackerDetSide.h"
@@ -176,7 +180,7 @@ public:
     // Queues asynchronous data transfers and kernels to the CUDA stream
     // returned by cms::cuda::ScopedContextAcquire::stream()
     gpuAlgo_.makeGlobal(const_cast<SiStripClustersCUDA&>(input), clusters_g, ctx.stream());
-    hostView_x = clusters_g.hostView(kClusterMaxStrips, ctx.stream());
+    hostView_x = clusters_g.hostView(SiStripClustersCUDA::kClusterMaxStrips, ctx.stream());
 
     // Destructor of ctx queues a callback to the CUDA stream notifying
     // waitingTaskHolder when the queued asynchronous work has finished

@@ -15,13 +15,19 @@
 #include "MagneticField/Records/interface/IdealMagneticFieldRecord.h"
 #include "Geometry/TrackerGeometryBuilder/interface/TrackerGeometry.h"
 #include "Geometry/TrackerGeometryBuilder/interface/StripGeomDetUnit.h"
+#include "DataFormats/GeometrySurface/interface/TrapezoidalPlaneBounds.h"
 
 #include "MkFitSiStripHitGPUKernel.h"
 #include "localToGlobal.cuh"
 
 namespace stripgpu {
+  int index_lookup3(const unsigned int detid);
+  int index_lookup4(const unsigned int detid);
+  int index_lookup5(const unsigned int detid);
+  int index_lookup6(const unsigned int detid);
+
   MkFitSiStripHitGPUKernel::MkFitSiStripHitGPUKernel() {
-    cudaCheck(cudaMallocHost(&localToGlobalMap_h, sizeof(localToGlobalMap)));
+    cudaCheck(cudaMallocHost(&localToGlobalMap_h, sizeof(LocalToGlobalMap)));
   }
 
   MkFitSiStripHitGPUKernel::~MkFitSiStripHitGPUKernel() {
@@ -58,8 +64,8 @@ namespace stripgpu {
     auto indexer3_h = localToGlobalMap_h->indexer3;
     auto indexer5_h = localToGlobalMap_h->indexer5;
 
-    cudaMemset(indexer3_h, -1, sizeof(LocalToGlobalMap_h::indexer3));
-    cudaMemset(indexer5_h, -1, sizeof(LocalToGlobalMap_h::indexer5));
+    cudaMemset(indexer3_h, -1, sizeof(LocalToGlobalMap::indexer3));
+    cudaMemset(indexer5_h, -1, sizeof(LocalToGlobalMap::indexer5));
 
     int* det_num_h = localToGlobalMap_h->det_num_bd;
     double* pitch_h = localToGlobalMap_h->pitch_bd;
@@ -247,8 +253,8 @@ namespace stripgpu {
     }
   }
   const LocalToGlobalMap* MkFitSiStripHitGPUKernel::toDevice() {
-    cudaCheck(cudaMalloc(&localToGlobalMap_d, sizeof(localToGlobalMap)));
-    cudaCheck(cudaMemcpy(localToGlobalMap_d, localToGlobalMap_h, cudaMemcpyDefault));
+    cudaCheck(cudaMalloc(&localToGlobalMap_d, sizeof(LocalToGlobalMap)));
+    cudaCheck(cudaMemcpy(localToGlobalMap_d, localToGlobalMap_h, sizeof(LocalToGlobalMap), cudaMemcpyDefault));
     return localToGlobalMap_d;
   }
 }  // namespace stripgpu
