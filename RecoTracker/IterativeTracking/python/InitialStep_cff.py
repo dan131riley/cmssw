@@ -224,22 +224,28 @@ initialStepTrackCandidates = RecoTracker.CkfPattern.CkfTrackCandidates_cfi.ckfTr
 
 from Configuration.ProcessModifiers.trackingMkFit_cff import trackingMkFit
 from RecoTracker.MkFit.mkFitGeometryESProducer_cfi import mkFitGeometryESProducer
-import RecoTracker.MkFit.mkFitHitConverter_cfi as mkFitHitConverter_cfi
+import RecoTracker.MkFit.mkFitPixelConverter_cfi as mkFitPixelConverter_cfi
+import RecoTracker.MkFit.mkFitStripConverter_cfi as mkFitStripConverter_cfi
 import RecoTracker.MkFit.mkFitSeedConverter_cfi as mkFitSeedConverter_cfi
 import RecoTracker.MkFit.mkFitProducer_cfi as mkFitProducer_cfi
 import RecoTracker.MkFit.mkFitOutputConverter_cfi as mkFitOutputConverter_cfi
-initialStepTrackCandidatesMkFitHits = mkFitHitConverter_cfi.mkFitHitConverter.clone()
+initialStepTrackCandidatesMkFitPixelHits = mkFitPixelConverter_cfi.mkFitPixelConverter.clone()
+initialStepTrackCandidatesMkFitStripHits = mkFitStripConverter_cfi.mkFitStripConverter.clone(
+    pixelhits = 'initialStepTrackCandidatesMkFitPixelHits',
+)
 initialStepTrackCandidatesMkFitSeeds = mkFitSeedConverter_cfi.mkFitSeedConverter.clone(
-    hits = 'initialStepTrackCandidatesMkFitHits',
+    pixelhits = 'initialStepTrackCandidatesMkFitStripHits',
+    #striphits = 'initialStepTrackCandidatesMkFitStripHits',
     seeds = 'initialStepSeeds',
 )
 initialStepTrackCandidatesMkFit = mkFitProducer_cfi.mkFitProducer.clone(
-    hits = 'initialStepTrackCandidatesMkFitHits',
+    pixelhits = 'initialStepTrackCandidatesMkFitStripHits',
+    #striphits = 'initialStepTrackCandidatesMkFitStripHits',
     seeds = 'initialStepTrackCandidatesMkFitSeeds',
 )
 trackingMkFit.toReplaceWith(initialStepTrackCandidates, mkFitOutputConverter_cfi.mkFitOutputConverter.clone(
     seeds = 'initialStepSeeds',
-    mkfitHits = 'initialStepTrackCandidatesMkFitHits',
+    mkfitHits = 'initialStepTrackCandidatesMkFitStripHits',
     mkfitSeeds = 'initialStepTrackCandidatesMkFitSeeds',
     tracks = 'initialStepTrackCandidatesMkFit',
 ))
@@ -419,7 +425,7 @@ InitialStepTask = cms.Task(initialStepSeedLayers,
 InitialStep = cms.Sequence(InitialStepTask)
 
 _InitialStepTask_trackingMkFit = InitialStepTask.copy()
-_InitialStepTask_trackingMkFit.add(initialStepTrackCandidatesMkFitHits, initialStepTrackCandidatesMkFitSeeds, initialStepTrackCandidatesMkFit, mkFitGeometryESProducer)
+_InitialStepTask_trackingMkFit.add(initialStepTrackCandidatesMkFitPixelHits,initialStepTrackCandidatesMkFitStripHits, initialStepTrackCandidatesMkFitSeeds, initialStepTrackCandidatesMkFit, mkFitGeometryESProducer)
 trackingMkFit.toReplaceWith(InitialStepTask, _InitialStepTask_trackingMkFit)
 
 _InitialStepTask_LowPU = InitialStepTask.copyAndExclude([firstStepPrimaryVerticesUnsorted, initialStepTrackRefsForJets, caloJetsForTrkTask, firstStepPrimaryVertices, initialStepClassifier1, initialStepClassifier2, initialStepClassifier3])

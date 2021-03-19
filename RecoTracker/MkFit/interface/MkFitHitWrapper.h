@@ -14,7 +14,7 @@ namespace mkfit {
 class MkFitHitWrapper {
 public:
   MkFitHitWrapper();
-  MkFitHitWrapper(MkFitHitIndexMap hitIndexMap, std::vector<mkfit::HitVec> hits);
+  MkFitHitWrapper(MkFitHitIndexMap hitIndexMap, std::vector<mkfit::HitVec> hits, int totalHits);
   ~MkFitHitWrapper();
 
   MkFitHitWrapper(MkFitHitWrapper const&) = delete;
@@ -24,10 +24,12 @@ public:
 
   MkFitHitIndexMap const& hitIndexMap() const { return hitIndexMap_; }
   std::vector<mkfit::HitVec> const& hits() const { return hits_; }
+  int const& totalHits() const{ return totalHits_;}
 
 private:
   MkFitHitIndexMap hitIndexMap_;
   std::vector<mkfit::HitVec> hits_;
+  int totalHits_;
 };
 
 #endif

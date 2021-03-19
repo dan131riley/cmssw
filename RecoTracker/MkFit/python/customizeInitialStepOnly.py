@@ -12,8 +12,8 @@ def customizeInitialStepOnly(process):
     process.initialStepSeedLayers.BPix.HitProducer = 'siPixelRecHitsPreSplitting'
     process.initialStepHitQuadruplets.SeedComparitorPSet.clusterShapeCacheSrc = "siPixelClusterShapeCachePreSplitting"
     process.initialStepSeeds.SeedComparitorPSet.ClusterShapeCacheSrc = "siPixelClusterShapeCachePreSplitting"
-    if hasattr(process, "initialStepTrackCandidatesMkFitHits"):
-        process.initialStepTrackCandidatesMkFitHits.pixelRecHits = "siPixelRecHitsPreSplitting"
+    if hasattr(process, "initialStepTrackCandidatesMkFitPixelHits"):
+        process.initialStepTrackCandidatesMkFitPixelHits.pixelRecHits = "siPixelRecHitsPreSplitting"
     if hasattr(process.initialStepTrackCandidates, "MeasurementTrackerEvent"):
         process.initialStepTrackCandidates.MeasurementTrackerEvent = 'MeasurementTrackerEventPreSplitting'
     process.initialStepTracks.MeasurementTrackerEvent = 'MeasurementTrackerEventPreSplitting'
