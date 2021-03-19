@@ -247,7 +247,8 @@ public:
       bool plusraw = (ttopo->side(detid[i]) == static_cast<unsigned>(TrackerDetSide::PosEndcap));
       const auto ilay = lnc.convertLayerNumber(subdet, layer[i], false, stereoraw, plusraw);
       mkFitHits[ilay].emplace_back(pos, err, totalHits);
-      printf("%d %d %f %f %f %e %e %e %e %e %e %.20e %.20e %.20e %.20e %d %d %d %d %.20e\n",detid[i],layer[i],pos[0],pos[1],pos[2],global_xx[i],global_xy[i],global_xz[i],global_yy[i],global_yz[i],global_zz[i],local[i],local_xx[i],local_xy[i],local_yy[i], ilay, layer[i],stereoraw,plusraw,barycenter[i]);
+      //hitIndexMap.insert(0,0,MkFitHitIndexMap::MkFitHit{static_cast<int>(mkFitHits[ilay].size()), ilay},&pos);
+      //printf("%d %d %f %f %f %e %e %e %e %e %e %.20e %.20e %.20e %.20e %d %d %d %d %.20e\n",detid[i],layer[i],pos[0],pos[1],pos[2],global_xx[i],global_xy[i],global_xz[i],global_yy[i],global_yz[i],global_zz[i],local[i],local_xx[i],local_xy[i],local_yy[i], ilay, layer[i],stereoraw,plusraw,barycenter[i]);
       ++totalHits;
     }
 
