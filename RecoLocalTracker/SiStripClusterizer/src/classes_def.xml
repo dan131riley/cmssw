@@ -1,4 +1,7 @@
 <lcgdict>
   <class name="MkFitStripInputWrapper" persistent="false"/>
   <class name="edm::Wrapper<MkFitStripInputWrapper>" persistent="false"/>
+
+  <class name="MkFitHitWrapper" persistent="false"/>
+  <class name="edm::Wrapper<MkFitHitWrapper>" persistent="false"/>
 </lcgdict>

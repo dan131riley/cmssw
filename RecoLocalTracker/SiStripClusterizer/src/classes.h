@@ -3,5 +3,6 @@
 
 #include "DataFormats/Common/interface/Wrapper.h"
 #include "RecoLocalTracker/SiStripClusterizer/interface/MkFitStripInputWrapper.h"
+#include "RecoTracker/MkFit/interface/MkFitHitWrapper.h"
 
 #endif

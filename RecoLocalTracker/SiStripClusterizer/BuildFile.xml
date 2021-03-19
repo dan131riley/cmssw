@@ -10,6 +10,7 @@
 <use name="MagneticField/Records"/>
 <use name="MagneticField/Engine"/>
 <use name="RecoLocalTracker/Records"/>
+<use name="RecoTracker/MkFit"/>
 <use name="HeterogeneousCore/CUDACore"/>
 <use   name="CUDADataFormats/SiStripCluster"/>
 <use name="cuda"/>
