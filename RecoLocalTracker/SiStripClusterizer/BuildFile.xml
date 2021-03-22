@@ -3,6 +3,7 @@
 <use name="FWCore/ParameterSet"/>
 <use name="DataFormats/SiStripDigi"/>
 <use name="DataFormats/SiStripCluster"/>
+<use name="DataFormats/TrackerRecHit2D"/>
 <use name="CondFormats/DataRecord"/>
 <use name="CondFormats/SiStripObjects"/>
 <use name="CalibFormats/SiStripObjects"/>
