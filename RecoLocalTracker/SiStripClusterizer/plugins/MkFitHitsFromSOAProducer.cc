@@ -241,12 +241,12 @@ bool fillMap(const HitCollection& hits, unsigned int detid, float barycenter,int
     const auto global_zz = clust_data->global_zz_h.get();
     const auto layer = clust_data->layer_h.get();
     const auto detid = clust_data->clusterDetId_h.get();
-    const auto clusterindex = clust_data->clusterIndex_h.get();
+//    const auto clusterindex = clust_data->clusterIndex_h.get();
     const auto barycenter = clust_data->barycenter_h.get();  //to remove Tres
-    const auto local_xx = clust_data->local_xx_h.get();
-    const auto local_xy = clust_data->local_xy_h.get();
-    const auto local_yy = clust_data->local_yy_h.get();
-    const auto local = clust_data->local_h.get();
+//    const auto local_xx = clust_data->local_xx_h.get();
+//    const auto local_xy = clust_data->local_xy_h.get();
+//    const auto local_yy = clust_data->local_yy_h.get();
+//    const auto local = clust_data->local_h.get();
 
     edm::ESHandle<TrackerTopology> ttopo;
     es.get<TrackerTopologyRcd>().get(ttopo);
@@ -299,7 +299,7 @@ bool fillMap(const HitCollection& hits, unsigned int detid, float barycenter,int
       if(found_hit){ 
       mkFitHits[ilay].emplace_back(pos, err, totalHits);
       }
-      //else{printf("failed to find hit %f\n",barycenter[i]);}
+      //else{printf("subdet %d; detIt %d: failed to find hit %f \n",subdet, detid[i],barycenter[i]);}
 //      adcs.clear();
 //const auto size = std::min(clusterSize[i], SiStripClustersCUDA::kClusterMaxStrips);
 //          for (uint32_t j = 0; j < size; ++j) {
@@ -364,6 +364,7 @@ template <typename HitCollection>
 bool MkFitSiStripHitsFromSOA::fillMap(const HitCollection& hits, unsigned int detid, float barycenter, int size,int ilay,bool missing, MkFitHitIndexMap& hitIndexMapx){
 //rechits = rechits.insert(rechits.end(),hits.begin(),hits.end());
       bool pass = false;
+      float bary_epsilon = 1;
       for (const auto& detset: hits){
           if(pass){break;}
         const DetId detid_clust = detset.detId();
@@ -381,7 +382,8 @@ bool MkFitSiStripHitsFromSOA::fillMap(const HitCollection& hits, unsigned int de
           pass = true;
           break;}
           auto bary = hit.cluster()->barycenter();
-          if (bary != barycenter) {continue;}
+          //if (bary != barycenter) {continue;}
+          if (abs(bary - barycenter) > bary_epsilon) {continue;}
         //  printf("test %f %f\n",bary,barycenter);
           hitIndexMapx.insert(hit.firstClusterRef().id(),
                          hit.firstClusterRef().index(),
