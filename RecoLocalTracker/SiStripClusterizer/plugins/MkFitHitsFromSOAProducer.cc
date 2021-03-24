@@ -50,6 +50,7 @@
 #include "DataFormats/TrackerRecHit2D/interface/SiStripRecHit2D.h"
 #include "DataFormats/TrackerRecHit2D/interface/OmniClusterRef.h"
 #include "DataFormats/TrackerRecHit2D/interface/SiStripRecHit2DCollection.h"
+#include "DataFormats/TrackerRecHit2D/interface/SiPixelRecHitCollection.h"
 class MkFitSiStripHitsFromSOA final : public edm::stream::EDProducer<edm::ExternalWork> {
 public:
   explicit MkFitSiStripHitsFromSOA(const edm::ParameterSet& conf) {
@@ -57,6 +58,7 @@ public:
     inputToken_ = consumes<cms::cuda::Product<SiStripClustersCUDA>>(conf.getParameter<edm::InputTag>("siClusters"));
     stripRphiRecHitToken_= consumes<SiStripRecHit2DCollection>(conf.getParameter<edm::InputTag>("stripRphiRecHits"));
       stripStereoRecHitToken_ = consumes<SiStripRecHit2DCollection>(conf.getParameter<edm::InputTag>("stripStereoRecHits"));
+      //pixelRecHitToken_ =consumes<SiPixelRecHitCollection>(conf.getParameter<edm::InputTag>("pixelRecHits"));
 //    outputToken_ = produces<edmNew::DetSetVector<SiStripCluster>>();
     //outputToken_ = produces<std::vector<mkfit::HitVec>>();
     //outputToken_ = produces<MkFitStripInputWrapper>();
@@ -66,7 +68,7 @@ public:
 
   static void fillDescriptions(edm::ConfigurationDescriptions& descriptions);
 template <typename HitCollection>
-void fillMap(const HitCollection& hits, unsigned int detid, float barycenter,int size,int ilay, MkFitHitIndexMap hitIndexMap);
+bool fillMap(const HitCollection& hits, unsigned int detid, float barycenter,int size,int ilay,bool missing, MkFitHitIndexMap& hitIndexMap);
 
   void beginRun(const edm::Run&, const edm::EventSetup& es) override {
     edm::ESHandle<SiStripBackPlaneCorrection> backPlane;
@@ -191,9 +193,9 @@ void fillMap(const HitCollection& hits, unsigned int detid, float barycenter,int
     cms::cuda::ScopedContextAcquire ctx{wrapper, std::move(waitingTaskHolder)};
 
     const auto& input = ctx.get(wrapper);
-    /*MkFitHitIndexMap*/ hitIndexMap = ev.get(pixelhitToken_).hitIndexMap();
-    /*int*/ totalHits = ev.get(pixelhitToken_).totalHits();
-    /*std::vector<mkfit::HitVec>*/ mkFitHits = ev.get(pixelhitToken_).hits();
+    ///*MkFitHitIndexMap*/ hitIndexMap = ev.get(pixelhitToken_).hitIndexMap();
+    ///*int*/ totalHits = ev.get(pixelhitToken_).totalHits();
+    ///*std::vector<mkfit::HitVec>*/ mkFitHits = ev.get(pixelhitToken_).hits();
 
 //    rechits_phi = ev.get(stripRphiRecHitToken_);
 //    rechits_stereo = ev.get(stripStereoRecHitToken_);
@@ -213,6 +215,9 @@ void fillMap(const HitCollection& hits, unsigned int detid, float barycenter,int
   void produce(edm::Event& ev, const edm::EventSetup& es) override {
     printf("Running MkFit Hits Producer\n");
     //cms::cuda::ScopedContextProduce ctx{ctxState_};
+    MkFitHitIndexMap hitIndexMap = ev.get(pixelhitToken_).hitIndexMap();
+    int totalHits = ev.get(pixelhitToken_).totalHits();
+    std::vector<mkfit::HitVec> mkFitHits = ev.get(pixelhitToken_).hits();
 
     //using out_t = edmNew::DetSetVector<SiStripCluster>;
     //std::unique_ptr<out_t> output(new edmNew::DetSetVector<SiStripCluster>());
@@ -220,9 +225,9 @@ void fillMap(const HitCollection& hits, unsigned int detid, float barycenter,int
 
     std::unique_ptr<MkFitSiStripClustersCUDA::HostView> clust_data = std::move(hostView_x);
     //auto siclust_data = gpuAlgoclust_.getResults()
-    const auto ADCs = clust_data->clusterADCs_h.get();
-    const auto stripIDs = clust_data->firstStrip_h.get();
-    const auto clusterSize = clust_data->clusterSize_h.get();
+    //const auto ADCs = clust_data->clusterADCs_h.get();
+    //const auto stripIDs = clust_data->firstStrip_h.get();
+    //const auto clusterSize = clust_data->clusterSize_h.get();
     //int totalHits = 0;
     const int nSeedStripsNC = clust_data->nClusters_h;
     const auto global_x = clust_data->global_x_h.get();
@@ -266,7 +271,7 @@ void fillMap(const HitCollection& hits, unsigned int detid, float barycenter,int
       bool stereoraw = ttopo->isStereo(detid[i]);
       bool plusraw = (ttopo->side(detid[i]) == static_cast<unsigned>(TrackerDetSide::PosEndcap));
       const auto ilay = lnc.convertLayerNumber(subdet, layer[i], false, stereoraw, plusraw);
-      mkFitHits[ilay].emplace_back(pos, err, totalHits);
+      //mkFitHits[ilay].emplace_back(pos, err, totalHits);
      
       //for (const auto& detset: rechits_stereo){
 //      for (const auto& detset: rechits){
@@ -282,8 +287,19 @@ void fillMap(const HitCollection& hits, unsigned int detid, float barycenter,int
 //                         &hit);
 //        }
 //      }
-      fillMap(ev.get(stripRphiRecHitToken_),detid[i],barycenter[i],static_cast<int>(mkFitHits[ilay].size()),ilay,hitIndexMap);        
-      fillMap(ev.get(stripStereoRecHitToken_),detid[i],barycenter[i],static_cast<int>(mkFitHits[ilay].size()),ilay,hitIndexMap);        
+      //printf("layer %d,index %d\n",ilay,static_cast<int>(mkFitHits[ilay].size()));
+      bool found_hit;
+      found_hit = fillMap(ev.get(stripRphiRecHitToken_),detid[i],barycenter[i],static_cast<int>(mkFitHits[ilay].size()),ilay,false,hitIndexMap);        
+      if(!found_hit){
+      found_hit = fillMap(ev.get(stripStereoRecHitToken_),detid[i],barycenter[i],static_cast<int>(mkFitHits[ilay].size()),ilay,false,hitIndexMap);        
+      }
+      //if(!found_hit){
+      //found_hit = fillMap(ev.get(pixelRecHitToken_),detid[i],barycenter[i],static_cast<int>(mkFitHits[ilay].size()),ilay,false,hitIndexMap);        
+      //}
+      if(found_hit){ 
+      mkFitHits[ilay].emplace_back(pos, err, totalHits);
+      }
+      //else{printf("failed to find hit %f\n",barycenter[i]);}
 //      adcs.clear();
 //const auto size = std::min(clusterSize[i], SiStripClustersCUDA::kClusterMaxStrips);
 //          for (uint32_t j = 0; j < size; ++j) {
@@ -301,6 +317,7 @@ void fillMap(const HitCollection& hits, unsigned int detid, float barycenter,int
 // 
 //      hitIndexMap.insert(static_cast<edm::ProductID>(detid[i]),clusterindex[i],MkFitHitIndexMap::MkFitHit{static_cast<int>(mkFitHits[ilay].size()), ilay},&hit);
       //printf("%d %d %f %f %f %e %e %e %e %e %e %.20e %.20e %.20e %.20e %d %d %d %d %.20e\n",detid[i],layer[i],pos[0],pos[1],pos[2],global_xx[i],global_xy[i],global_xz[i],global_yy[i],global_yz[i],global_zz[i],local[i],local_xx[i],local_xy[i],local_yy[i], ilay, layer[i],stereoraw,plusraw,barycenter[i]);
+      //hitIndexMap.hitPtr(MkFitHitIndexMap::MkFitHit{static_cast<int>(mkFitHits[ilay].size()), ilay})->clone();
       ++totalHits;
     }
 
@@ -323,12 +340,13 @@ private:
   edm::EDPutTokenT<MkFitHitWrapper> outputToken_;
   edm::EDGetTokenT<MkFitHitWrapper> pixelhitToken_;
 
-  MkFitHitIndexMap hitIndexMap;// = ev.get(pixelhitToken_).hitIndexMap();
-  int totalHits;// = ev.get(pixelhitToken_).totalHits();
-  std::vector<mkfit::HitVec> mkFitHits;// = ev.get(pixelhitToken_).hits();
+//  MkFitHitIndexMap hitIndexMap;// = ev.get(pixelhitToken_).hitIndexMap();
+//  int totalHits;// = ev.get(pixelhitToken_).totalHits();
+//  std::vector<mkfit::HitVec> mkFitHits;// = ev.get(pixelhitToken_).hits();
 
   edm::EDGetTokenT<SiStripRecHit2DCollection> stripRphiRecHitToken_;
   edm::EDGetTokenT<SiStripRecHit2DCollection> stripStereoRecHitToken_;
+//  edm::EDGetTokenT<SiPixelRecHitCollection> pixelRecHitToken_;
   SiStripRecHit2DCollection rechits_stereo;
   SiStripRecHit2DCollection rechits_phi;
   edmNew::DetSetVector<SiStripRecHit2DCollection> rechits;
@@ -343,23 +361,37 @@ const TrackerGeometry* tkG;
 //}
 
 template <typename HitCollection>
-void MkFitSiStripHitsFromSOA::fillMap(const HitCollection& hits, unsigned int detid, float barycenter, int size,int ilay, MkFitHitIndexMap hitIndexMap){
+bool MkFitSiStripHitsFromSOA::fillMap(const HitCollection& hits, unsigned int detid, float barycenter, int size,int ilay,bool missing, MkFitHitIndexMap& hitIndexMapx){
 //rechits = rechits.insert(rechits.end(),hits.begin(),hits.end());
+      bool pass = false;
       for (const auto& detset: hits){
+          if(pass){break;}
         const DetId detid_clust = detset.detId();
-        if( detid_clust.rawId() != detid) {continue;}
-        hitIndexMap.increaseLayerSize(ilay, detset.size());
+        if(!missing && detid_clust.rawId() != detid) {continue;}
+        hitIndexMapx.increaseLayerSize(ilay, detset.size());
         for (const auto& hit : detset) {
-          auto bary = hit.cluster()->barycenter();
-          if (bary != barycenter) {continue;}
-        //  printf("test %f %f\n",bary,barycenter);
-          hitIndexMap.insert(hit.firstClusterRef().id(),
+          if(pass){break;}
+          if(missing){
+
+          hitIndexMapx.insert(hit.firstClusterRef().id(),
                          hit.firstClusterRef().index(),
                          MkFitHitIndexMap::MkFitHit{size, ilay},
                          //MkFitHitIndexMap::MkFitHit{static_cast<int>(mkFitHits[ilay].size()), ilay},
                          &hit);
+          pass = true;
+          break;}
+          auto bary = hit.cluster()->barycenter();
+          if (bary != barycenter) {continue;}
+        //  printf("test %f %f\n",bary,barycenter);
+          hitIndexMapx.insert(hit.firstClusterRef().id(),
+                         hit.firstClusterRef().index(),
+                         MkFitHitIndexMap::MkFitHit{size, ilay},
+                         //MkFitHitIndexMap::MkFitHit{static_cast<int>(mkFitHits[ilay].size()), ilay},
+                         &hit);
+          pass = true;break;
         }
       }
+      return pass;
 }
 void MkFitSiStripHitsFromSOA::fillDescriptions(edm::ConfigurationDescriptions& descriptions) {
   edm::ParameterSetDescription desc;

@@ -507,14 +507,14 @@ namespace stripgpu {
 
     auto detids = clust_data_d->clusterDetId_;
     auto gdetids = global_data_d->clusterDetId_;
-    auto clusterindex = clust_data_d->clusterIndex_;
-    auto gclusterindex = global_data_d->clusterIndex_;
-    auto clusterADCs = clust_data_d->clusterADCs_;
-    auto gclusterADCs = global_data_d->clusterADCs_;
-    auto clusterfirst = clust_data_d->firstStrip_;
-    auto gclusterfirst = global_data_d->firstStrip_;
-    auto clustersize = clust_data_d->clusterSize_;
-    auto gclustersize = global_data_d->clusterSize_;
+   // auto clusterindex = clust_data_d->clusterIndex_;
+   // auto gclusterindex = global_data_d->clusterIndex_;
+   // auto clusterADCs = clust_data_d->clusterADCs_;
+   // auto gclusterADCs = global_data_d->clusterADCs_;
+   // auto clusterfirst = clust_data_d->firstStrip_;
+   // auto gclusterfirst = global_data_d->firstStrip_;
+   // auto clustersize = clust_data_d->clusterSize_;
+   // auto gclustersize = global_data_d->clusterSize_;
 
     static const int kSubDetOffset = 25;
     static const int kSubDetMask = 0x7;
@@ -528,10 +528,10 @@ namespace stripgpu {
         continue;
       }
       barycenterg[i] = barycenter[i];
-      gclusterindex[i] = clusterindex[i];
-      gclusterADCs[i] = clusterADCs[i];
-      gclusterfirst[i] = clusterfirst[i];
-      gclustersize[i] = clustersize[i];
+      //gclusterindex[i] = clusterindex[i];
+      //gclusterADCs[i] = clusterADCs[i];
+      //gclusterfirst[i] = clusterfirst[i];
+      //gclustersize[i] = clustersize[i];
       if (subdet == 3) {  //run barrel
         tex_index = indexer3[index_lookup3(detid)];
         getGlobalBarrel(detid,

@@ -293,6 +293,8 @@ initialStepTrackCandidatesMkFitPixelHits = mkFitPixelConverter_cfi.mkFitPixelCon
 initialStepTrackCandidatesMkFitStripHits = mkFitHitConverter_cfi.mkFitHitConverter.clone(
     pixelhits = 'initialStepTrackCandidatesMkFitPixelHits',
     siClusters = 'SiStripRawToSOAClusters',
+    #stripRphiRecHits = "hltSiStripRecHits:rphiRecHit",
+    #stripStereoRecHits = "hltSiStripRecHits:stereoRecHit",
 )
 initialStepTrackCandidatesMkFitSeeds = mkFitSeedConverter_cfi.mkFitSeedConverter.clone(
     pixelhits = 'initialStepTrackCandidatesMkFitStripHits',
