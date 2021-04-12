@@ -68,7 +68,7 @@ public:
 
   static void fillDescriptions(edm::ConfigurationDescriptions& descriptions);
 template <typename HitCollection>
-bool fillMap(const HitCollection& hits, unsigned int detid, float barycenter,int size,int ilay,bool missing, MkFitHitIndexMap& hitIndexMap);
+bool fillMap(const HitCollection& hits, unsigned int detid, float barycenter,int size,int ilay, MkFitHitIndexMap& hitIndexMap);
 
   void beginRun(const edm::Run&, const edm::EventSetup& es) override {
     edm::ESHandle<SiStripBackPlaneCorrection> backPlane;
@@ -288,14 +288,11 @@ bool fillMap(const HitCollection& hits, unsigned int detid, float barycenter,int
 //        }
 //      }
       //printf("layer %d,index %d\n",ilay,static_cast<int>(mkFitHits[ilay].size()));
-      bool found_hit;
-      found_hit = fillMap(ev.get(stripRphiRecHitToken_),detid[i],barycenter[i],static_cast<int>(mkFitHits[ilay].size()),ilay,false,hitIndexMap);        
+      bool found_hit;//=true;
+      found_hit = fillMap(ev.get(stripRphiRecHitToken_),detid[i],barycenter[i],static_cast<int>(mkFitHits[ilay].size()),ilay,hitIndexMap);
       if(!found_hit){
-      found_hit = fillMap(ev.get(stripStereoRecHitToken_),detid[i],barycenter[i],static_cast<int>(mkFitHits[ilay].size()),ilay,false,hitIndexMap);        
+      found_hit = fillMap(ev.get(stripStereoRecHitToken_),detid[i],barycenter[i],static_cast<int>(mkFitHits[ilay].size()),ilay,hitIndexMap);
       }
-      //if(!found_hit){
-      //found_hit = fillMap(ev.get(pixelRecHitToken_),detid[i],barycenter[i],static_cast<int>(mkFitHits[ilay].size()),ilay,false,hitIndexMap);        
-      //}
       if(found_hit){ 
       mkFitHits[ilay].emplace_back(pos, err, totalHits);
       }
@@ -361,26 +358,17 @@ const TrackerGeometry* tkG;
 //}
 
 template <typename HitCollection>
-bool MkFitSiStripHitsFromSOA::fillMap(const HitCollection& hits, unsigned int detid, float barycenter, int size,int ilay,bool missing, MkFitHitIndexMap& hitIndexMapx){
+bool MkFitSiStripHitsFromSOA::fillMap(const HitCollection& hits, unsigned int detid, float barycenter, int size,int ilay, MkFitHitIndexMap& hitIndexMapx){
 //rechits = rechits.insert(rechits.end(),hits.begin(),hits.end());
       bool pass = false;
-      float bary_epsilon = 1;
+      float bary_epsilon = 2;
       for (const auto& detset: hits){
           if(pass){break;}
         const DetId detid_clust = detset.detId();
-        if(!missing && detid_clust.rawId() != detid) {continue;}
+        if(detid_clust.rawId() != detid) {continue;}
         hitIndexMapx.increaseLayerSize(ilay, detset.size());
         for (const auto& hit : detset) {
           if(pass){break;}
-          if(missing){
-
-          hitIndexMapx.insert(hit.firstClusterRef().id(),
-                         hit.firstClusterRef().index(),
-                         MkFitHitIndexMap::MkFitHit{size, ilay},
-                         //MkFitHitIndexMap::MkFitHit{static_cast<int>(mkFitHits[ilay].size()), ilay},
-                         &hit);
-          pass = true;
-          break;}
           auto bary = hit.cluster()->barycenter();
           //if (bary != barycenter) {continue;}
           if (abs(bary - barycenter) > bary_epsilon) {continue;}
