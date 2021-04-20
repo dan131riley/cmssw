@@ -4,4 +4,7 @@
 
   <class name="MkFitHitWrapper" persistent="false"/>
   <class name="edm::Wrapper<MkFitHitWrapper>" persistent="false"/>
+
+  <class name="MkFitRecHitWrapper" persistent="false"/>
+  <class name="edm::Wrapper<MkFitRecHitWrapper>" persistent="false"/>
 </lcgdict>
