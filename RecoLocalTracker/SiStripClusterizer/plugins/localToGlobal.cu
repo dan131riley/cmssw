@@ -320,13 +320,13 @@ namespace stripgpu {
                                          float* g_zz,
                                          int elem,
                                          short i,
-                                         float* l_xx,
-                                         float* l_xy,
-                                         float* l_yy,
-                                         float* local,
+//                                         float* l_xx,
+//                                         float* l_xy,
+//                                         float* l_yy,
+//                                         float* local,
                                          const LocalToGlobalMap* map_d) {
-    int deti = map_d->det_num_bd[i];
-    if (deti == (int)detid) {
+//    int deti = map_d->det_num_bd[i];
+//    if (deti == (int)detid) {
       double pitch = map_d->pitch_bd[i];
       double offset = map_d->offset_bd[i];
       double length = map_d->len_bd[i];
@@ -369,11 +369,11 @@ namespace stripgpu {
           R12 * (R13 * localError_xx + R23 * localError_xy) + R22 * (R13 * localError_xy + R23 * localError_yy);
       g_zz[elem] =
           R13 * (R13 * localError_xx + R23 * localError_xy) + R23 * (R13 * localError_xy + R23 * localError_yy);
-      l_xx[elem] = localError_xx;
-      l_xy[elem] = localError_xy;
-      l_yy[elem] = localError_yy;
-      local[elem] = localPoint;
-    }
+//      l_xx[elem] = localError_xx;
+//      l_xy[elem] = localError_xy;
+//      l_yy[elem] = localError_yy;
+//      local[elem] = localPoint;
+//    }
   }
 
   __device__ __constant__ float tanPi8 = 0.4142135623730950;
@@ -397,13 +397,13 @@ namespace stripgpu {
                                          float* g_zz,
                                          int elem,
                                          short i,
-                                         float* l_xx,
-                                         float* l_xy,
-                                         float* l_yy,
-                                         float* local,
+//                                         float* l_xx,
+//                                         float* l_xy,
+//                                         float* l_yy,
+//                                         float* local,
                                          const LocalToGlobalMap* map_d) {
-    int deti = map_d->det_num_ed[i];
-    if (deti == (int)detid) {
+//    int deti = map_d->det_num_ed[i];
+//    if (deti == (int)detid) {
       int yAx = map_d->yAx_ed[i];
       double rCross = map_d->rCross_ed[i];
       double aw = map_d->aw_ed[i];
@@ -472,11 +472,11 @@ namespace stripgpu {
           R12 * (R13 * localError_xx + R23 * localError_xy) + R22 * (R13 * localError_xy + R23 * localError_yy);
       g_zz[elem] =
           R13 * (R13 * localError_xx + R23 * localError_xy) + R23 * (R13 * localError_xy + R23 * localError_yy);
-      local[elem] = localPoint;
-      l_xx[elem] = localError_xx;
-      l_xy[elem] = localError_xy;
-      l_yy[elem] = localError_yy;
-    }
+//      local[elem] = localPoint;
+//      l_xx[elem] = localError_xx;
+//      l_xy[elem] = localError_xy;
+//      l_yy[elem] = localError_yy;
+//    }
   }
   __global__ static void localToGlobal(SiStripClustersCUDA::DeviceView* clust_data_d,
                                        MkFitSiStripClustersCUDA::GlobalDeviceView* global_data_d,
@@ -484,10 +484,10 @@ namespace stripgpu {
                                        const LocalToGlobalMap* map_d) {
     float* __restrict__ barycenter = clust_data_d->barycenter_;
     bool* __restrict__ trueCluster = clust_data_d->trueCluster_;
-    float* __restrict__ local_xx = global_data_d->local_xx_;
-    float* __restrict__ local_xy = global_data_d->local_xy_;
-    float* __restrict__ local_yy = global_data_d->local_yy_;
-    float* __restrict__ local = global_data_d->local_;
+//    float* __restrict__ local_xx = global_data_d->local_xx_;
+//    float* __restrict__ local_xy = global_data_d->local_xy_;
+//    float* __restrict__ local_yy = global_data_d->local_yy_;
+//    float* __restrict__ local = global_data_d->local_;
     float* __restrict__ global_x = global_data_d->global_x_;
     float* __restrict__ global_y = global_data_d->global_y_;
     float* __restrict__ global_z = global_data_d->global_z_;
@@ -507,19 +507,40 @@ namespace stripgpu {
 
     auto detids = clust_data_d->clusterDetId_;
     auto gdetids = global_data_d->clusterDetId_;
+   // auto clusterindex = clust_data_d->clusterIndex_;
+   // auto gclusterindex = global_data_d->clusterIndex_;
+   // auto clusterADCs = clust_data_d->clusterADCs_;
+   // auto gclusterADCs = global_data_d->clusterADCs_;
+   // auto clusterfirst = clust_data_d->firstStrip_;
+   // auto gclusterfirst = global_data_d->firstStrip_;
+   // auto clustersize = clust_data_d->clusterSize_;
+   // auto gclustersize = global_data_d->clusterSize_;
 
     static const int kSubDetOffset = 25;
     static const int kSubDetMask = 0x7;
-    for (int i = 0; i < nStrips; i++) {
+
+    const int tid = threadIdx.x;
+    const int bid = blockIdx.x;
+    const int nthreads = blockDim.x;
+
+    const int i = nthreads * bid + tid;
+
+    //for (int i = 0; i < nStrips; i++) {
+    if (i < nStrips) {
       const auto detid = detids[i];
       gdetids[i] = detid;
+      layer[i] = -1;
+      //if (!trueCluster[i]) {
+      //  continue;
+      //}
+      if (trueCluster[i]) {
       const auto subdet = (detid >> kSubDetOffset) & kSubDetMask;
       short tex_index = -1;
-      layer[i] = -1;
-      if (!trueCluster[i]) {
-        continue;
-      }
       barycenterg[i] = barycenter[i];
+      //gclusterindex[i] = clusterindex[i];
+      //gclusterADCs[i] = clusterADCs[i];
+      //gclusterfirst[i] = clusterfirst[i];
+      //gclustersize[i] = clustersize[i];
       if (subdet == 3) {  //run barrel
         tex_index = indexer3[index_lookup3(detid)];
         getGlobalBarrel(detid,
@@ -535,10 +556,10 @@ namespace stripgpu {
                         global_zz,
                         i,
                         tex_index,
-                        local_xx,
-                        local_xy,
-                        local_yy,
-                        local,
+//                        local_xx,
+//                        local_xy,
+//                        local_yy,
+//                        local,
                         map_d);
         layer[i] = ((detid >> 14) & 0x7);
       } else if (subdet == 5) {  // run barrel
@@ -556,10 +577,10 @@ namespace stripgpu {
                         global_zz,
                         i,
                         tex_index,
-                        local_xx,
-                        local_xy,
-                        local_yy,
-                        local,
+//                        local_xx,
+//                        local_xy,
+//                        local_yy,
+//                        local,
                         map_d);
         layer[i] = ((detid >> 14) & 0x7);
       } else if (subdet == 4) {  //run endcap
@@ -577,10 +598,10 @@ namespace stripgpu {
                         global_zz,
                         i,
                         tex_index,
-                        local_xx,
-                        local_xy,
-                        local_yy,
-                        local,
+//                        local_xx,
+//                        local_xy,
+//                        local_yy,
+//                        local,
                         map_d);
         layer[i] = ((detid >> 11) & 0x3);
       } else if (subdet == 6) {  // run endcap
@@ -598,16 +619,16 @@ namespace stripgpu {
                         global_zz,
                         i,
                         tex_index,
-                        local_xx,
-                        local_xy,
-                        local_yy,
-                        local,
+//                        local_xx,
+//                        local_xy,
+//                        local_yy,
+//                        local,
                         map_d);
         layer[i] = ((detid >> 14) & 0xF);
       }
     }
   }
-
+}
   void MkFitSiStripHitGPUKernel::makeGlobal(SiStripClustersCUDA& clusters_d_x,
                                             MkFitSiStripClustersCUDA& clusters_g_x,
                                             cudaStream_t stream) {

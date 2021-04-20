@@ -221,25 +221,56 @@ initialStepTrackCandidates = RecoTracker.CkfPattern.CkfTrackCandidates_cfi.ckfTr
     doSeedingRegionRebuilding = True,
     useHitsSplitting = True
 )
+SiStripClusterizerGPUConditionsESProducer = cms.ESProducer('SiStripClusterizerGPUConditionsESProducer',
+    QualityLabel = cms.string(''),
+    Label = cms.string(''),
+    appendToDataLabel = cms.string('')
+)
+from RecoLocalTracker.SiStripClusterizer.DefaultClusterizer_cff import *
+SiStripRawToSOAClusters = cms.EDProducer("SiStripClusterizerFromRawGPU",
+                                                Clusterizer = DefaultClusterizer,
+                                                ProductLabel = cms.InputTag('rawDataCollector'),
+                                                ConditionsLabel = cms.string("")
+                                                )
+SiStripRawToClustersFacility = cms.EDProducer("SiStripClustersFromSOA",
+    ProductLabel = cms.InputTag("SiStripRawToSOAClusters")
+)
 
 from Configuration.ProcessModifiers.trackingMkFit_cff import trackingMkFit
 from RecoTracker.MkFit.mkFitGeometryESProducer_cfi import mkFitGeometryESProducer
-import RecoTracker.MkFit.mkFitHitConverter_cfi as mkFitHitConverter_cfi
+import RecoTracker.MkFit.mkFitPixelConverter_cfi as mkFitPixelConverter_cfi
+import RecoTracker.MkFit.mkFitStripConverter_cfi as mkFitStripConverter_cfi
+import RecoLocalTracker.SiStripClusterizer.mkFitHitsFromSOAProducer_cfi as mkFitHitConverter_cfi
+import RecoLocalTracker.SiStripClusterizer.mkFitRecHitsMap_cfi as mkFitRecHitsMapConverter_cfi
 import RecoTracker.MkFit.mkFitSeedConverter_cfi as mkFitSeedConverter_cfi
 import RecoTracker.MkFit.mkFitProducer_cfi as mkFitProducer_cfi
 import RecoTracker.MkFit.mkFitOutputConverter_cfi as mkFitOutputConverter_cfi
-initialStepTrackCandidatesMkFitHits = mkFitHitConverter_cfi.mkFitHitConverter.clone()
+initialStepTrackCandidatesMkFitPixelHits = mkFitPixelConverter_cfi.mkFitPixelConverter.clone()
+#initialStepTrackCandidatesMkFitStripHits = mkFitStripConverter_cfi.mkFitStripConverter.clone(
+initialStepTrackCandidatesMkFitStripHits = mkFitHitConverter_cfi.mkFitHitConverter.clone(
+    pixelhits = 'initialStepTrackCandidatesMkFitPixelHits',
+    siClusters = 'SiStripRawToSOAClusters',
+)
+initialStepTrackCandidatesMkFitStripRecHitsMap = mkFitRecHitsMapConverter_cfi.mkFitRecHitsMapConverter.clone(
+    pixelhits = 'initialStepTrackCandidatesMkFitPixelHits',
+    striphits = 'initialStepTrackCandidatesMkFitStripHits',
+#    siClusters = 'SiStripRawToSOAClusters',
+)
 initialStepTrackCandidatesMkFitSeeds = mkFitSeedConverter_cfi.mkFitSeedConverter.clone(
-    hits = 'initialStepTrackCandidatesMkFitHits',
+    pixelhits = 'initialStepTrackCandidatesMkFitStripRecHitsMap',
+    #pixelhits = 'initialStepTrackCandidatesMkFitStripHits',
+    #striphits = 'initialStepTrackCandidatesMkFitStripHits',
     seeds = 'initialStepSeeds',
 )
 initialStepTrackCandidatesMkFit = mkFitProducer_cfi.mkFitProducer.clone(
-    hits = 'initialStepTrackCandidatesMkFitHits',
+    pixelhits = 'initialStepTrackCandidatesMkFitStripRecHitsMap',
+    #pixelhits = 'initialStepTrackCandidatesMkFitStripHits',
     seeds = 'initialStepTrackCandidatesMkFitSeeds',
 )
 trackingMkFit.toReplaceWith(initialStepTrackCandidates, mkFitOutputConverter_cfi.mkFitOutputConverter.clone(
     seeds = 'initialStepSeeds',
-    mkfitHits = 'initialStepTrackCandidatesMkFitHits',
+    mkfitHits = 'initialStepTrackCandidatesMkFitStripRecHitsMap',
+    #mkfitHits = 'initialStepTrackCandidatesMkFitStripHits',
     mkfitSeeds = 'initialStepTrackCandidatesMkFitSeeds',
     tracks = 'initialStepTrackCandidatesMkFit',
 ))
@@ -419,7 +450,8 @@ InitialStepTask = cms.Task(initialStepSeedLayers,
 InitialStep = cms.Sequence(InitialStepTask)
 
 _InitialStepTask_trackingMkFit = InitialStepTask.copy()
-_InitialStepTask_trackingMkFit.add(initialStepTrackCandidatesMkFitHits, initialStepTrackCandidatesMkFitSeeds, initialStepTrackCandidatesMkFit, mkFitGeometryESProducer)
+#_InitialStepTask_trackingMkFit.add(initialStepTrackCandidatesMkFitPixelHits,initialStepTrackCandidatesMkFitStripHits, initialStepTrackCandidatesMkFitSeeds, initialStepTrackCandidatesMkFit, mkFitGeometryESProducer)
+_InitialStepTask_trackingMkFit.add(initialStepTrackCandidatesMkFitPixelHits,SiStripRawToSOAClusters,initialStepTrackCandidatesMkFitStripHits,initialStepTrackCandidatesMkFitStripRecHitsMap, initialStepTrackCandidatesMkFitSeeds, initialStepTrackCandidatesMkFit, mkFitGeometryESProducer)
 trackingMkFit.toReplaceWith(InitialStepTask, _InitialStepTask_trackingMkFit)
 
 _InitialStepTask_LowPU = InitialStepTask.copyAndExclude([firstStepPrimaryVerticesUnsorted, initialStepTrackRefsForJets, caloJetsForTrkTask, firstStepPrimaryVertices, initialStepClassifier1, initialStepClassifier2, initialStepClassifier3])

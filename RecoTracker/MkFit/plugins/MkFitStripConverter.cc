@@ -30,10 +30,10 @@
 #include "Hit.h"
 #include "LayerNumberConverter.h"
 
-class MkFitHitConverter : public edm::global::EDProducer<> {
+class MkFitStripConverter : public edm::global::EDProducer<> {
 public:
-  explicit MkFitHitConverter(edm::ParameterSet const& iConfig);
-  ~MkFitHitConverter() override = default;
+  explicit MkFitStripConverter(edm::ParameterSet const& iConfig);
+  ~MkFitStripConverter() override = default;
 
   static void fillDescriptions(edm::ConfigurationDescriptions& descriptions);
 
@@ -62,7 +62,8 @@ private:
   using SMatrixSym33 = ROOT::Math::SMatrix<float, 3, 3, ROOT::Math::MatRepSym<float, 3>>;
   using SMatrixSym66 = ROOT::Math::SMatrix<float, 6, 6, ROOT::Math::MatRepSym<float, 6>>;
 
-  edm::EDGetTokenT<SiPixelRecHitCollection> pixelRecHitToken_;
+//  edm::EDGetTokenT<SiPixelRecHitCollection> pixelRecHitToken_;
+  edm::EDGetTokenT<MkFitHitWrapper> pixelhitToken_;
   edm::EDGetTokenT<SiStripRecHit2DCollection> stripRphiRecHitToken_;
   edm::EDGetTokenT<SiStripRecHit2DCollection> stripStereoRecHitToken_;
   edm::ESGetToken<TransientTrackingRecHitBuilder, TransientRecHitRecord> ttrhBuilderToken_;
@@ -72,8 +73,9 @@ private:
   const float minGoodStripCharge_;
 };
 
-MkFitHitConverter::MkFitHitConverter(edm::ParameterSet const& iConfig)
-    : pixelRecHitToken_{consumes<SiPixelRecHitCollection>(iConfig.getParameter<edm::InputTag>("pixelRecHits"))},
+MkFitStripConverter::MkFitStripConverter(edm::ParameterSet const& iConfig)
+    : //pixelRecHitToken_{consumes<SiPixelRecHitCollection>(iConfig.getParameter<edm::InputTag>("pixelRecHits"))},
+      pixelhitToken_{consumes<MkFitHitWrapper>(iConfig.getParameter<edm::InputTag>("pixelhits"))},
       stripRphiRecHitToken_{
           consumes<SiStripRecHit2DCollection>(iConfig.getParameter<edm::InputTag>("stripRphiRecHits"))},
       stripStereoRecHitToken_{
@@ -86,10 +88,11 @@ MkFitHitConverter::MkFitHitConverter(edm::ParameterSet const& iConfig)
       minGoodStripCharge_{static_cast<float>(
           iConfig.getParameter<edm::ParameterSet>("minGoodStripCharge").getParameter<double>("value"))} {}
 
-void MkFitHitConverter::fillDescriptions(edm::ConfigurationDescriptions& descriptions) {
+void MkFitStripConverter::fillDescriptions(edm::ConfigurationDescriptions& descriptions) {
   edm::ParameterSetDescription desc;
 
-  desc.add("pixelRecHits", edm::InputTag{"siPixelRecHits"});
+  //desc.add("pixelRecHits", edm::InputTag{"siPixelRecHits"});
+  desc.add("pixelhits", edm::InputTag("mkFitPixelConverter"));
   desc.add("stripRphiRecHits", edm::InputTag{"siStripMatchedRecHits", "rphiRecHit"});
   desc.add("stripStereoRecHits", edm::InputTag{"siStripMatchedRecHits", "stereoRecHit"});
   desc.add("ttrhBuilder", edm::ESInputTag{"", "WithTrackAngle"});
@@ -98,45 +101,48 @@ void MkFitHitConverter::fillDescriptions(edm::ConfigurationDescriptions& descrip
   descCCC.add<double>("value");
   desc.add("minGoodStripCharge", descCCC);
 
-  descriptions.add("mkFitHitConverterDefault", desc);
+  descriptions.add("mkFitStripConverterDefault", desc);
 }
 
-void MkFitHitConverter::produce(edm::StreamID iID, edm::Event& iEvent, const edm::EventSetup& iSetup) const {
+void MkFitStripConverter::produce(edm::StreamID iID, edm::Event& iEvent, const edm::EventSetup& iSetup) const {
   // Then import hits
   const auto& ttrhBuilder = iSetup.getData(ttrhBuilderToken_);
   const auto& ttopo = iSetup.getData(ttopoToken_);
   const auto& mkFitGeom = iSetup.getData(mkFitGeomToken_);
 
-  std::vector<mkfit::HitVec> mkFitHits(mkFitGeom.layerNumberConverter().nLayers());
-  MkFitHitIndexMap hitIndexMap;
-  int totalHits = 0;  // I need to have a global hit index in order to have the hit remapping working?
+  //std::vector<mkfit::HitVec> mkFitHits(mkFitGeom.layerNumberConverter().nLayers());
+  std::vector<mkfit::HitVec> mkFitHits = iEvent.get(pixelhitToken_).hits();
+  //MkFitHitIndexMap hitIndexMap;
+  MkFitHitIndexMap hitIndexMap = iEvent.get(pixelhitToken_).hitIndexMap();
+  //int totalHits = 0;  // I need to have a global hit index in order to have the hit remapping working?
+  int totalHits = iEvent.get(pixelhitToken_).totalHits();  // I need to have a global hit index in order to have the hit remapping working?
   // Process strips first for better memory allocation pattern
   convertHits(iEvent.get(stripRphiRecHitToken_), mkFitHits, hitIndexMap, totalHits, ttopo, ttrhBuilder, mkFitGeom);
   convertHits(iEvent.get(stripStereoRecHitToken_), mkFitHits, hitIndexMap, totalHits, ttopo, ttrhBuilder, mkFitGeom);
-  convertHits(iEvent.get(pixelRecHitToken_), mkFitHits, hitIndexMap, totalHits, ttopo, ttrhBuilder, mkFitGeom);
+  //convertHits(iEvent.get(pixelRecHitToken_), mkFitHits, hitIndexMap, totalHits, ttopo, ttrhBuilder, mkFitGeom);
 
-  iEvent.emplace(putToken_, std::move(hitIndexMap), std::move(mkFitHits));
+  iEvent.emplace(putToken_, std::move(hitIndexMap), std::move(mkFitHits),totalHits);
 }
 
-float MkFitHitConverter::clusterCharge(const SiStripRecHit2D& hit, DetId hitId) const {
+float MkFitStripConverter::clusterCharge(const SiStripRecHit2D& hit, DetId hitId) const {
   return siStripClusterTools::chargePerCM(hitId, hit.firstClusterRef().stripCluster());
 }
-nullptr_t MkFitHitConverter::clusterCharge(const SiPixelRecHit& hit, DetId hitId) const { return nullptr; }
+nullptr_t MkFitStripConverter::clusterCharge(const SiPixelRecHit& hit, DetId hitId) const { return nullptr; }
 
-bool MkFitHitConverter::passCCC(float charge) const { return charge > minGoodStripCharge_; }
+bool MkFitStripConverter::passCCC(float charge) const { return charge > minGoodStripCharge_; }
 
-bool MkFitHitConverter::passCCC(nullptr_t) const { return true; }
+bool MkFitStripConverter::passCCC(nullptr_t) const { return true; }
 
-void MkFitHitConverter::setDetails(mkfit::Hit& mhit, const SiPixelCluster& cluster, int shortId, nullptr_t) const {
+void MkFitStripConverter::setDetails(mkfit::Hit& mhit, const SiPixelCluster& cluster, int shortId, nullptr_t) const {
   mhit.setupAsPixel(shortId, cluster.sizeX(), cluster.sizeY());
 }
 
-void MkFitHitConverter::setDetails(mkfit::Hit& mhit, const SiStripCluster& cluster, int shortId, float charge) const {
+void MkFitStripConverter::setDetails(mkfit::Hit& mhit, const SiStripCluster& cluster, int shortId, float charge) const {
   mhit.setupAsStrip(shortId, charge, cluster.amplitudes().size());
 }
 
 template <typename HitCollection>
-void MkFitHitConverter::convertHits(const HitCollection& hits,
+void MkFitStripConverter::convertHits(const HitCollection& hits,
                                     std::vector<mkfit::HitVec>& mkFitHits,
                                     MkFitHitIndexMap& hitIndexMap,
                                     int& totalHits,
@@ -185,7 +191,7 @@ void MkFitHitConverter::convertHits(const HitCollection& hits,
       err.At(0, 2) = gerr.czx();
       err.At(1, 2) = gerr.czy();
 
-      LogTrace("MkFitHitConverter") << "Adding hit detid " << detid.rawId() << " subdet " << subdet << " layer "
+      LogTrace("MkFitStripConverter") << "Adding hit detid " << detid.rawId() << " subdet " << subdet << " layer "
                                     << layer << " isStereo " << isStereo << " zplus " << isPlusSide(detid) << " ilay "
                                     << ilay;
 
@@ -194,10 +200,11 @@ void MkFitHitConverter::convertHits(const HitCollection& hits,
                          MkFitHitIndexMap::MkFitHit{static_cast<int>(mkFitHits[ilay].size()), ilay},
                          &hit);
       mkFitHits[ilay].emplace_back(pos, err, totalHits);
+//      printf("this runs the strips\n");
       setDetails(mkFitHits[ilay].back(), *(hit.cluster()), uniqueIdInLayer, charge);
       ++totalHits;
     }
   }
 }
 
-DEFINE_FWK_MODULE(MkFitHitConverter);
+DEFINE_FWK_MODULE(MkFitStripConverter);

@@ -214,7 +214,13 @@ TrackCandidateCollection MkFitOutputConverter::convertCandidates(const MkFitOutp
         // them in the TrackProducer.
         lastHitInvalid = true;
       } else {
+        //if(/*hitOnTrack.layer == 58 || hitOnTrack.layer == 59 || hitOnTrack.layer == 64 || */hitOnTrack.layer >= 48){continue;}
+        //if(hitOnTrack.layer == 5 || hitOnTrack.layer == 6 || hitOnTrack.layer == 7 || hitOnTrack.layer == 4){continue;}
+        //if(hitOnTrack.index == 0){continue;}
+        //printf("layer: %d; index: %d\n",hitOnTrack.layer,hitOnTrack.index);
+        //if (MkFitHitIndexMap::MkFitHit{0, hitOnTrack.layer}.ptr == nullptr){continue;}
         recHits.push_back(hitIndexMap.hitPtr(MkFitHitIndexMap::MkFitHit{hitOnTrack.index, hitOnTrack.layer})->clone());
+        //recHits.push_back(hitIndexMap.hitPtr(MkFitHitIndexMap::MkFitHit{hitOnTrack.index, hitOnTrack.layer})->clone());
         LogTrace("MkFitOutputConverter") << "  pos " << recHits.back().globalPosition().x() << " "
                                          << recHits.back().globalPosition().y() << " "
                                          << recHits.back().globalPosition().z() << " mag2 "

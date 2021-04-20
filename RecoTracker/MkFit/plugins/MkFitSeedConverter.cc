@@ -45,7 +45,8 @@ private:
   using SMatrixSym33 = ROOT::Math::SMatrix<float, 3, 3, ROOT::Math::MatRepSym<float, 3>>;
   using SMatrixSym66 = ROOT::Math::SMatrix<float, 6, 6, ROOT::Math::MatRepSym<float, 6>>;
 
-  edm::EDGetTokenT<MkFitHitWrapper> hitToken_;
+  edm::EDGetTokenT<MkFitHitWrapper> pixelhitToken_;
+  //edm::EDGetTokenT<MkFitHitWrapper> striphitToken_;
   edm::EDGetTokenT<edm::View<TrajectorySeed>> seedToken_;
   edm::ESGetToken<TransientTrackingRecHitBuilder, TransientRecHitRecord> ttrhBuilderToken_;
   edm::ESGetToken<MagneticField, IdealMagneticFieldRecord> mfToken_;
@@ -53,7 +54,8 @@ private:
 };
 
 MkFitSeedConverter::MkFitSeedConverter(edm::ParameterSet const& iConfig)
-    : hitToken_{consumes<MkFitHitWrapper>(iConfig.getParameter<edm::InputTag>("hits"))},
+    : pixelhitToken_{consumes<MkFitHitWrapper>(iConfig.getParameter<edm::InputTag>("pixelhits"))},
+      //striphitToken_{consumes<MkFitHitWrapper>(iConfig.getParameter<edm::InputTag>("striphits"))},
       seedToken_{consumes<edm::View<TrajectorySeed>>(iConfig.getParameter<edm::InputTag>("seeds"))},
       ttrhBuilderToken_{esConsumes<TransientTrackingRecHitBuilder, TransientRecHitRecord>(
           iConfig.getParameter<edm::ESInputTag>("ttrhBuilder"))},
@@ -63,7 +65,8 @@ MkFitSeedConverter::MkFitSeedConverter(edm::ParameterSet const& iConfig)
 void MkFitSeedConverter::fillDescriptions(edm::ConfigurationDescriptions& descriptions) {
   edm::ParameterSetDescription desc;
 
-  desc.add("hits", edm::InputTag("mkFitHitConverter"));
+  desc.add("pixelhits", edm::InputTag("mkFitPixelConverter"));
+  //desc.add("striphits", edm::InputTag("mkFitStripConverter"));
   desc.add("seeds", edm::InputTag{"initialStepSeeds"});
   desc.add("ttrhBuilder", edm::ESInputTag{"", "WithTrackAngle"});
 
@@ -73,9 +76,14 @@ void MkFitSeedConverter::fillDescriptions(edm::ConfigurationDescriptions& descri
 void MkFitSeedConverter::produce(edm::StreamID iID, edm::Event& iEvent, const edm::EventSetup& iSetup) const {
   iEvent.emplace(putToken_,
                  convertSeeds(iEvent.get(seedToken_),
-                              iEvent.get(hitToken_).hitIndexMap(),
+                              iEvent.get(pixelhitToken_).hitIndexMap(),
                               iSetup.getData(ttrhBuilderToken_),
                               iSetup.getData(mfToken_)));
+ // iEvent.emplace(putToken_,
+ //                convertSeeds(iEvent.get(seedToken_),
+ //                             iEvent.get(striphitToken_).hitIndexMap(),
+ //                             iSetup.getData(ttrhBuilderToken_),
+ //                             iSetup.getData(mfToken_)));
 }
 
 mkfit::TrackVec MkFitSeedConverter::convertSeeds(const edm::View<TrajectorySeed>& seeds,

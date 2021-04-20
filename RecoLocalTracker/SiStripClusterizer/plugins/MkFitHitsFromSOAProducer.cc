@@ -17,9 +17,6 @@
 #include "CUDADataFormats/SiStripCluster/interface/MkFitSiStripClustersCUDA.h"
 #include "CUDADataFormats/SiStripCluster/interface/SiStripClustersCUDA.h"
 
-//#include "clusterGPU.cuh"
-//#include "localToGlobal.cuh"
-
 #include <memory>
 
 #include "Geometry/TrackerNumberingBuilder/interface/GeometricDet.h"
@@ -44,14 +41,26 @@
 #include "Geometry/TrackerGeometryBuilder/interface/StripGeomDetUnit.h"
 
 #include "RecoLocalTracker/SiStripClusterizer/plugins/MkFitSiStripHitGPUKernel.h"
+#include "RecoLocalTracker/SiStripClusterizer/interface/MkFitRecHitWrapper.h"
+#include "RecoTracker/MkFit/interface/MkFitHitWrapper.h"
+#include "FWCore/ParameterSet/interface/ConfigurationDescriptions.h"
+#include "FWCore/ParameterSet/interface/ParameterSetDescription.h"
+#include "DataFormats/TrackerRecHit2D/interface/SiStripRecHit2D.h"
+#include "DataFormats/TrackerRecHit2D/interface/OmniClusterRef.h"
+#include "DataFormats/TrackerRecHit2D/interface/SiStripRecHit2DCollection.h"
+#include "DataFormats/TrackerRecHit2D/interface/SiPixelRecHitCollection.h"
 class MkFitSiStripHitsFromSOA final : public edm::stream::EDProducer<edm::ExternalWork> {
 public:
   explicit MkFitSiStripHitsFromSOA(const edm::ParameterSet& conf) {
-    inputToken_ = consumes<cms::cuda::Product<SiStripClustersCUDA>>(conf.getParameter<edm::InputTag>("ProductLabel"));
-    outputToken_ = produces<edmNew::DetSetVector<SiStripCluster>>();
-    //outputToken_ = produces<std::vector<mkfit::HitVec>>();
-    //outputToken_ = produces<MkFitStripInputWrapper>();
+    inputToken_ = consumes<cms::cuda::Product<SiStripClustersCUDA>>(conf.getParameter<edm::InputTag>("siClusters"));
+//    stripRphiRecHitToken_= consumes<SiStripRecHit2DCollection>(conf.getParameter<edm::InputTag>("stripRphiRecHits"));
+//    stripStereoRecHitToken_ = consumes<SiStripRecHit2DCollection>(conf.getParameter<edm::InputTag>("stripStereoRecHits"));
+//    outputToken_ = produces<MkFitHitWrapper>();
+    outputToken_ = produces<MkFitRecHitWrapper>();
+    pixelhitToken_ = consumes<MkFitHitWrapper>(conf.getParameter<edm::InputTag>("pixelhits"));
   }
+
+  static void fillDescriptions(edm::ConfigurationDescriptions& descriptions);
 
   void beginRun(const edm::Run&, const edm::EventSetup& es) override {
     edm::ESHandle<SiStripBackPlaneCorrection> backPlane;
@@ -59,7 +68,7 @@ public:
     const SiStripBackPlaneCorrection* BackPlaneCorrectionMap = backPlane.product();
     edm::ESHandle<MagneticField> magField;
     es.get<IdealMagneticFieldRecord>().get(magField);
-    const MagneticField* MagFieldMap = &(*magField);  //.product();
+    const MagneticField* MagFieldMap = &(*magField);
 
     edm::ESHandle<SiStripLorentzAngle> lorentz;
     es.get<SiStripLorentzAngleRcd>().get("deconvolution", lorentz);
@@ -67,10 +76,7 @@ public:
 
     edm::ESHandle<TrackerGeometry> tkGx;
     es.get<TrackerDigiGeometryRecord>().get(tkGx);
-    const TrackerGeometry* tkG = tkGx.product();
-    //sort the tracker geometry into barrel and endcap vectors
-    //std::vector<const GeomDet*> rots_barrel;
-    //std::vector<const GeomDet*> rots_endcap;
+    tkG = tkGx.product();
     std::vector<std::tuple<unsigned int,
                            float,
                            float,
@@ -88,18 +94,6 @@ public:
                            float,
                            float>>
         stripUnit;
-    //for( auto det: tkG->detsTIB()){
-    //      rots_barrel.emplace_back(det);
-    //}
-    //for( auto det: tkG->detsTOB()){
-    //      rots_barrel.emplace_back(det);
-    //}
-    //for( auto det: tkG->detsTID()){
-    //      rots_endcap.emplace_back(det);
-    //}
-    //for( auto det: tkG->detsTEC()){
-    //      rots_endcap.emplace_back(det);
-    //}
     for (auto dus : tkG->detUnits()) {
       auto rot_num = dus->geographicalId().rawId();
       auto magField = (dus->surface()).toLocal(MagFieldMap->inTesla(dus->surface().position()));
@@ -124,13 +118,7 @@ public:
                                              rot.zy(),
                                              rot.zz()));
 
-      //stripUnit.emplace_back(std::make_tuple(rot_num,magField.x(),magField.y(),magField.z()));
     }
-    //sort and erase duplicates.
-    //rots_barrel.erase(unique(rots_barrel.begin(),rots_barrel.end()), rots_barrel.end());
-    //rots_endcap.erase(unique(rots_endcap.begin(),rots_endcap.end()), rots_endcap.end());
-    //sort(rots_barrel.begin(),rots_barrel.end(),[](const GeomDet *lhs, const GeomDet *rhs){DetId detl = lhs->geographicalId();DetId detr = rhs->geographicalId(); return detl.rawId() < detr.rawId();});
-    //sort(rots_endcap.begin(),rots_endcap.end(),[](const GeomDet *lhs, const GeomDet *rhs){DetId detl = lhs->geographicalId();DetId detr = rhs->geographicalId(); return detl.rawId() < detr.rawId();});
 
     //get geometry information (i dont think boundaries are collected in the the tracker collection
     edm::ESHandle<GeometricDet> GeomDet2;
@@ -140,7 +128,6 @@ public:
     std::vector<const GeometricDet*> dets_endcap;
     for (auto& it : GeomDet2->deepComponents()) {
       DetId det = it->geographicalId();
-      //unsigned int det_num = det.rawId();
 
       int subdet = det.subdetId();
       if (subdet == 3 || subdet == 5) {
@@ -163,8 +150,8 @@ public:
       return detl.rawId() < detr.rawId();
     });
     //Load the barrel and endcap geometry into textured memory
-    gpuAlgo_.loadBarrel(dets_barrel, /*rots_barrel,*/ BackPlaneCorrectionMap, MagFieldMap, LorentzAngleMap, stripUnit);
-    gpuAlgo_.loadEndcap(dets_endcap, /*rots_endcap,*/ BackPlaneCorrectionMap, MagFieldMap, LorentzAngleMap, stripUnit);
+    gpuAlgo_.loadBarrel(dets_barrel, BackPlaneCorrectionMap, MagFieldMap, LorentzAngleMap, stripUnit);
+    gpuAlgo_.loadEndcap(dets_endcap, BackPlaneCorrectionMap, MagFieldMap, LorentzAngleMap, stripUnit);
   }
 
   void acquire(edm::Event const& ev,
@@ -176,7 +163,6 @@ public:
     cms::cuda::ScopedContextAcquire ctx{wrapper, std::move(waitingTaskHolder)};
 
     const auto& input = ctx.get(wrapper);
-
     // Queues asynchronous data transfers and kernels to the CUDA stream
     // returned by cms::cuda::ScopedContextAcquire::stream()
     gpuAlgo_.makeGlobal(const_cast<SiStripClustersCUDA&>(input), clusters_g, ctx.stream());
@@ -187,16 +173,11 @@ public:
   }
 
   void produce(edm::Event& ev, const edm::EventSetup& es) override {
-    printf("Running MkFit Hits Producer\n");
-    //cms::cuda::ScopedContextProduce ctx{ctxState_};
+    int totalHits = ev.get(pixelhitToken_).totalHits();
 
-    using out_t = edmNew::DetSetVector<SiStripCluster>;
-    std::unique_ptr<out_t> output(new edmNew::DetSetVector<SiStripCluster>());
     mkfit::LayerNumberConverter lnc{mkfit::TkLayout::phase1};
 
     std::unique_ptr<MkFitSiStripClustersCUDA::HostView> clust_data = std::move(hostView_x);
-
-    int totalHits = 0;
     const int nSeedStripsNC = clust_data->nClusters_h;
     const auto global_x = clust_data->global_x_h.get();
     const auto global_y = clust_data->global_y_h.get();
@@ -209,17 +190,25 @@ public:
     const auto global_zz = clust_data->global_zz_h.get();
     const auto layer = clust_data->layer_h.get();
     const auto detid = clust_data->clusterDetId_h.get();
-    const auto barycenter = clust_data->barycenter_h.get();  //to remove Tres
-    const auto local_xx = clust_data->local_xx_h.get();
-    const auto local_xy = clust_data->local_xy_h.get();
-    const auto local_yy = clust_data->local_yy_h.get();
-    const auto local = clust_data->local_h.get();
+    const auto barycenter = clust_data->barycenter_h.get();
 
+
+    std::vector<std::vector<float>> set_barycenters(lnc.nLayers());
+    std::vector<std::vector<int>> set_detIds(lnc.nLayers());
+    std::vector<mkfit::HitVec> mkFitHits(lnc.nLayers());
+
+    for(int j=0;j<static_cast<int>(lnc.nLayers());j++){
+      mkFitHits[j].reserve(5000);
+      set_barycenters[j].reserve(5000);
+      set_detIds[j].reserve(5000);
+    }
+    
     edm::ESHandle<TrackerTopology> ttopo;
     es.get<TrackerTopologyRcd>().get(ttopo);
     using SVector3 = ROOT::Math::SVector<float, 3>;
     using SMatrixSym33 = ROOT::Math::SMatrix<float, 3, 3, ROOT::Math::MatRepSym<float, 3>>;
-    std::vector<mkfit::HitVec> mkFitHits(lnc.nLayers());
+    std::vector<uint8_t> adcs;
+    adcs.reserve(SiStripClustersCUDA::kClusterMaxStrips);
     for (int i = 0; i < nSeedStripsNC; ++i) {
       if (layer[i] == -1) {
         continue;
@@ -237,14 +226,17 @@ public:
       bool plusraw = (ttopo->side(detid[i]) == static_cast<unsigned>(TrackerDetSide::PosEndcap));
       const auto ilay = lnc.convertLayerNumber(subdet, layer[i], false, stereoraw, plusraw);
       mkFitHits[ilay].emplace_back(pos, err, totalHits);
-      //printf("%d %d %f %f %f %e %e %e %e %e %e %.20e %.20e %.20e %.20e %d %d %d %d %.20e\n",detid[i],layer[i],pos[0],pos[1],pos[2],global_xx[i],global_xy[i],global_xz[i],global_yy[i],global_yz[i],global_zz[i],local[i],local_xx[i],local_xy[i],local_yy[i], ilay, layer[i],stereoraw,plusraw,barycenter[i]);
+      set_barycenters[ilay].emplace_back(barycenter[i]);
+      set_detIds[ilay].emplace_back(detid[i]);
       ++totalHits;
     }
 
-    output->shrink_to_fit();
-    ev.put(std::move(output));
-    //ev.put(std::move(mkFitHits));
-    //ev.emplace(outputToken_,std::move(mkFitHits),lnc);
+
+      mkFitHits.shrink_to_fit();
+      set_barycenters.shrink_to_fit();
+      set_detIds.shrink_to_fit();
+
+    ev.emplace(outputToken_,std::move(mkFitHits),totalHits,std::move(set_barycenters),std::move(set_detIds));
   }
 
 private:
@@ -253,10 +245,21 @@ private:
   std::unique_ptr<MkFitSiStripClustersCUDA::HostView> hostView_x;
 
   edm::EDGetTokenT<cms::cuda::Product<SiStripClustersCUDA>> inputToken_;
-  edm::EDPutTokenT<edmNew::DetSetVector<SiStripCluster>> outputToken_;
-  //edm::EDPutTokenT<std::vector<mkfit::HitVec>> outputToken_;
-  //edm::EDPutTokenT<MkFitStripInputWrapper> outputToken_;
+  edm::EDPutTokenT<MkFitRecHitWrapper> outputToken_;
+  edm::EDGetTokenT<MkFitHitWrapper> pixelhitToken_;
+
+const TrackerGeometry* tkG;
 };
+
+
+void MkFitSiStripHitsFromSOA::fillDescriptions(edm::ConfigurationDescriptions& descriptions) {
+  edm::ParameterSetDescription desc;
+  desc.add("pixelhits", edm::InputTag{"mkFitPixelConverter"});
+  desc.add("siClusters", edm::InputTag{"SiStripClustersFromRawFacility"});
+  desc.add("stripRphiRecHits", edm::InputTag{"siStripMatchedRecHits", "rphiRecHit"});
+  desc.add("stripStereoRecHits", edm::InputTag{"siStripMatchedRecHits", "stereoRecHit"});
+  descriptions.add("mkFitHitsFromSOADefault", desc);
+}
 
 #include "FWCore/Framework/interface/MakerMacros.h"
 DEFINE_FWK_MODULE(MkFitSiStripHitsFromSOA);

@@ -1,7 +1,8 @@
 import FWCore.ParameterSet.Config as cms
 
 import RecoTracker.MkFit.mkFitGeometryESProducer_cfi as mkFitGeometryESProducer_cfi
-import RecoTracker.MkFit.mkFitHitConverter_cfi as mkFitHitConverter_cfi
+import RecoTracker.MkFit.mkFitPixelConverter_cfi as mkFitPixelConverter_cfi
+import RecoTracker.MkFit.mkFitStripConverter_cfi as mkFitStripConverter_cfi
 import RecoTracker.MkFit.mkFitSeedConverter_cfi as mkFitSeedConverter_cfi
 import RecoTracker.MkFit.mkFitProducer_cfi as mkFitProducer_cfi
 import RecoTracker.MkFit.mkFitOutputConverter_cfi as mkFitOutputConverter_cfi
@@ -22,7 +23,14 @@ def customizeHLTIter0ToMkFit(process):
 
     process.hltMkFitGeometryESProducer = mkFitGeometryESProducer_cfi.mkFitGeometryESProducer.clone()
 
-    process.hltIter0PFlowCkfTrackCandidatesMkFitHits = mkFitHitConverter_cfi.mkFitHitConverter.clone(
+    process.hltIter0PFlowCkfTrackCandidatesMkFitPixelHits = mkFitPixelConverter_cfi.mkFitPixelConverter.clone(
+        pixelRecHits = "hltSiPixelRecHits",
+        stripRphiRecHits = "hltSiStripRecHits:rphiRecHit",
+        stripStereoRecHits = "hltSiStripRecHits:stereoRecHit",
+        ttrhBuilder = ":hltESPTTRHBWithTrackAngle",
+        minGoodStripCharge = dict(refToPSet_ = 'HLTSiStripClusterChargeCutLoose'),
+    )
+    process.hltIter0PFlowCkfTrackCandidatesMkFitStripHits = mkFitStripConverter_cfi.mkFitStripConverter.clone(
         pixelRecHits = "hltSiPixelRecHits",
         stripRphiRecHits = "hltSiStripRecHits:rphiRecHit",
         stripStereoRecHits = "hltSiStripRecHits:stereoRecHit",
@@ -50,6 +58,6 @@ def customizeHLTIter0ToMkFit(process):
 
     process.HLTDoLocalStripSequence += process.hltSiStripRecHits
     process.HLTIterativeTrackingIteration0.replace(process.hltIter0PFlowCkfTrackCandidates,
-                                                   process.hltIter0PFlowCkfTrackCandidatesMkFitHits+process.hltIter0PFlowCkfTrackCandidatesMkFitSeeds+process.hltIter0PFlowCkfTrackCandidatesMkFit+process.hltIter0PFlowCkfTrackCandidates)
+                                                   process.hltIter0PFlowCkfTrackCandidatesMkFitPixelHits+process.hltIter0PFlowCkfTrackCandidatesMkFitStripHits+process.hltIter0PFlowCkfTrackCandidatesMkFitSeeds+process.hltIter0PFlowCkfTrackCandidatesMkFit+process.hltIter0PFlowCkfTrackCandidates)
 
     return process

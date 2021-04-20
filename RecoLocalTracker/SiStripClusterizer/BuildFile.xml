@@ -3,6 +3,7 @@
 <use name="FWCore/ParameterSet"/>
 <use name="DataFormats/SiStripDigi"/>
 <use name="DataFormats/SiStripCluster"/>
+<use name="DataFormats/TrackerRecHit2D"/>
 <use name="CondFormats/DataRecord"/>
 <use name="CondFormats/SiStripObjects"/>
 <use name="CalibFormats/SiStripObjects"/>
@@ -10,6 +11,7 @@
 <use name="MagneticField/Records"/>
 <use name="MagneticField/Engine"/>
 <use name="RecoLocalTracker/Records"/>
+<use name="RecoTracker/MkFit"/>
 <use name="HeterogeneousCore/CUDACore"/>
 <use   name="CUDADataFormats/SiStripCluster"/>
 <use name="cuda"/>
