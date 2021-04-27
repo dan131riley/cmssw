@@ -234,10 +234,10 @@ namespace stripgpu {
     const int nSeedStripsNC = std::min(maxseeds(), *(sst_data_d->prefixSeedStripsNCMask + sst_data_d->nStrips - 1));
     const float minGoodCharge = sst_data_d->minGoodCharge_;  //1620.0;
 
-    const uint32_t *__restrict__ clusterIndexLeft = clust_data_d->clusterIndex_;
-
+    uint32_t *__restrict__ clusterIndexLeft = clust_data_d->clusterIndex_;
     uint32_t *__restrict__ clusterSize = clust_data_d->clusterSize_;
     uint8_t *__restrict__ clusterADCs = clust_data_d->clusterADCs_;
+    stripId_t *__restrict__ firstStrip = clust_data_d->firstStrip_;
     bool *__restrict__ trueCluster = clust_data_d->trueCluster_;
     float *__restrict__ barycenter = clust_data_d->barycenter_;
 
@@ -280,9 +280,6 @@ namespace stripgpu {
 
               if (adc_j < 254)
                 adc_j = (charge > 1022 ? 255 : (charge > 253 ? 254 : charge));
-              if (j < kClusterMaxStrips) {
-                clusterADCs[j * nSeedStripsNC + i] = adc_j;
-              }
               adcSum += static_cast<float>(adc_j);
               sumx += j * adc_j;
               suma += adc_j;
@@ -293,8 +290,62 @@ namespace stripgpu {
           const fedId_t fed = chanlocs->fedID(chan);
           const fedCh_t channel = chanlocs->fedCh(chan);
           trueCluster[i] = (adcSum * conditions->invthick(fed, channel)) > minGoodCharge;
-          barycenter[i] = static_cast<float>(stripId[left] & stripIndexMask) +
-                          static_cast<float>(sumx) / static_cast<float>(suma) + 0.5f;
+          const auto bary_i = static_cast<float>(sumx) / static_cast<float>(suma);
+          barycenter[i] = static_cast<float>(stripId[left] & stripIndexMask) + bary_i + 0.5f;
+
+#define CENTERBARY
+#ifdef CENTERBARY
+          int low = left;
+          int high = left + size;
+          if (size > kClusterMaxStrips) {
+            low = std::max(static_cast<int>(left + bary_i - kClusterMaxStrips/2 - 0.5f), left);
+            while (stripId[low] == stripgpu::invStrip) {
+              low++;
+            }
+            high = low + kClusterMaxStrips;
+            if (high > left + size) {
+              high = left + size;
+              low = high - kClusterMaxStrips;
+            }
+#ifdef GPU_CHECK
+            if (not (low >= left && high <= (left + size))) {
+              printf("left %d low %d center %f %f high %d right %d\n", left, low, barycenter[i], left + bary_i, high, left+size);
+              assert(low >= left && high <= (left + size));
+            }
+#endif
+            clusterIndexLeft[i] = low;
+            firstStrip[i] = stripId[low];
+          }
+#else
+          int low = left;
+          int high = left + size;
+#endif
+
+          j = 0;
+          for (int index = low; index < high; index++) {
+            const auto chan = channels[index];
+            const auto fed = chanlocs->fedID(chan);
+            const auto channel = chanlocs->fedCh(chan);
+            const auto strip = stripId[index];
+#ifdef GPU_CHECK
+            if (fed == stripgpu::invFed) {
+              printf("Invalid fed index %d\n", index);
+            }
+#endif
+            if (strip != stripgpu::invStrip) {
+              const float gain_j = conditions->gain(fed, channel, strip);
+
+              uint8_t adc_j = adc[index];
+              const int charge = static_cast<int>(static_cast<float>(adc_j) / gain_j + 0.5f);
+
+              if (adc_j < 254)
+                adc_j = (charge > 1022 ? 255 : (charge > 253 ? 254 : charge));
+              if (j < kClusterMaxStrips) {
+                clusterADCs[j * nSeedStripsNC + i] = adc_j;
+              }
+              j++;
+            }
+          }
           clusterSize[i] = j;
         }
       }

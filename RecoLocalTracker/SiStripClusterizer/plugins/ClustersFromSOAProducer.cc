@@ -71,7 +71,7 @@ public:
     const auto detIDs = clust_data->clusterDetId_h.get();
     const auto stripIDs = clust_data->firstStrip_h.get();
     const auto trueCluster = clust_data->trueCluster_h.get();
-
+    //const auto barycenter = clust_data->barycenter_h.get();
     output->reserve(15000, nSeedStripsNC);
 
     std::vector<uint8_t> adcs;
@@ -95,7 +95,7 @@ public:
         i++;
       }
 
-#define DSRDEBUG
+      //#define DSRDEBUG
 #ifdef DSRDEBUG
       if (detid == 369120277) {
         std::cout << "Printing clusters for detid " << detid << std::endl;
