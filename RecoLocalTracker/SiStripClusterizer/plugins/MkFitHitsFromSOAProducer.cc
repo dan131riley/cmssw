@@ -49,115 +49,31 @@
 #include "DataFormats/TrackerRecHit2D/interface/OmniClusterRef.h"
 #include "DataFormats/TrackerRecHit2D/interface/SiStripRecHit2DCollection.h"
 #include "DataFormats/TrackerRecHit2D/interface/SiPixelRecHitCollection.h"
+#include "RecoLocalTracker/Records/interface/SiStripGPULocalToGlobalMapRcd.h"
+#include "SiStripGPULocalToGlobalMap.h"
+
 class MkFitSiStripHitsFromSOA final : public edm::stream::EDProducer<edm::ExternalWork> {
 public:
   explicit MkFitSiStripHitsFromSOA(const edm::ParameterSet& conf) {
     inputToken_ = consumes<cms::cuda::Product<SiStripClustersCUDA>>(conf.getParameter<edm::InputTag>("siClusters"));
-//    stripRphiRecHitToken_= consumes<SiStripRecHit2DCollection>(conf.getParameter<edm::InputTag>("stripRphiRecHits"));
-//    stripStereoRecHitToken_ = consumes<SiStripRecHit2DCollection>(conf.getParameter<edm::InputTag>("stripStereoRecHits"));
-//    outputToken_ = produces<MkFitHitWrapper>();
-    outputToken_ = produces<MkFitRecHitWrapper>();
     pixelhitToken_ = consumes<MkFitHitWrapper>(conf.getParameter<edm::InputTag>("pixelhits"));
+
+    geometryToken_ = esConsumes<SiStripGPULocalToGlobalMap, SiStripGPULocalToGlobalMapRcd>(
+        edm::ESInputTag{"", conf.getParameter<std::string>("ConditionsLabel")});
+    topologyToken_ = esConsumes<TrackerTopology, TrackerTopologyRcd>();
+
+    outputToken_ = produces<MkFitRecHitWrapper>();
   }
 
   static void fillDescriptions(edm::ConfigurationDescriptions& descriptions);
 
-  void beginRun(const edm::Run&, const edm::EventSetup& es) override {
-    edm::ESHandle<SiStripBackPlaneCorrection> backPlane;
-    es.get<SiStripBackPlaneCorrectionDepRcd>().get(backPlane);
-    const SiStripBackPlaneCorrection* BackPlaneCorrectionMap = backPlane.product();
-    edm::ESHandle<MagneticField> magField;
-    es.get<IdealMagneticFieldRecord>().get(magField);
-    const MagneticField* MagFieldMap = &(*magField);
-
-    edm::ESHandle<SiStripLorentzAngle> lorentz;
-    es.get<SiStripLorentzAngleRcd>().get("deconvolution", lorentz);
-    const SiStripLorentzAngle* LorentzAngleMap = lorentz.product();
-
-    edm::ESHandle<TrackerGeometry> tkGx;
-    es.get<TrackerDigiGeometryRecord>().get(tkGx);
-    tkG = tkGx.product();
-    std::vector<std::tuple<unsigned int,
-                           float,
-                           float,
-                           float,
-                           float,
-                           float,
-                           float,
-                           float,
-                           float,
-                           float,
-                           float,
-                           float,
-                           float,
-                           float,
-                           float,
-                           float>>
-        stripUnit;
-    for (auto dus : tkG->detUnits()) {
-      auto rot_num = dus->geographicalId().rawId();
-      auto magField = (dus->surface()).toLocal(MagFieldMap->inTesla(dus->surface().position()));
-
-      Surface::RotationType rot = dus->surface().rotation();
-      Surface::PositionType pos = dus->surface().position();
-
-      stripUnit.emplace_back(std::make_tuple(rot_num,
-                                             magField.x(),
-                                             magField.y(),
-                                             magField.z(),
-                                             pos.x(),
-                                             pos.y(),
-                                             pos.z(),
-                                             rot.xx(),
-                                             rot.xy(),
-                                             rot.xz(),
-                                             rot.yx(),
-                                             rot.yy(),
-                                             rot.yz(),
-                                             rot.zx(),
-                                             rot.zy(),
-                                             rot.zz()));
-
-    }
-
-    //get geometry information (i dont think boundaries are collected in the the tracker collection
-    edm::ESHandle<GeometricDet> GeomDet2;
-    es.get<IdealGeometryRecord>().get(GeomDet2);
-    //sort the tracker geometry into barrel and endcap vectors
-    std::vector<const GeometricDet*> dets_barrel;
-    std::vector<const GeometricDet*> dets_endcap;
-    for (auto& it : GeomDet2->deepComponents()) {
-      DetId det = it->geographicalId();
-
-      int subdet = det.subdetId();
-      if (subdet == 3 || subdet == 5) {
-        dets_barrel.emplace_back(it);
-      } else if (subdet == 4 || subdet == 6) {
-        dets_endcap.emplace_back(it);
-      }
-    }
-    //sort and erase duplicates.
-    dets_barrel.erase(unique(dets_barrel.begin(), dets_barrel.end()), dets_barrel.end());
-    dets_endcap.erase(unique(dets_endcap.begin(), dets_endcap.end()), dets_endcap.end());
-    sort(dets_barrel.begin(), dets_barrel.end(), [](const GeometricDet* lhs, const GeometricDet* rhs) {
-      DetId detl = lhs->geographicalId();
-      DetId detr = rhs->geographicalId();
-      return detl.rawId() < detr.rawId();
-    });
-    sort(dets_endcap.begin(), dets_endcap.end(), [](const GeometricDet* lhs, const GeometricDet* rhs) {
-      DetId detl = lhs->geographicalId();
-      DetId detr = rhs->geographicalId();
-      return detl.rawId() < detr.rawId();
-    });
-    //Load the barrel and endcap geometry into textured memory
-    gpuAlgo_.loadBarrel(dets_barrel, BackPlaneCorrectionMap, MagFieldMap, LorentzAngleMap, stripUnit);
-    gpuAlgo_.loadEndcap(dets_endcap, BackPlaneCorrectionMap, MagFieldMap, LorentzAngleMap, stripUnit);
-  }
+  void beginRun(const edm::Run&, const edm::EventSetup& es) override {}
 
   void acquire(edm::Event const& ev,
                edm::EventSetup const& es,
                edm::WaitingTaskWithArenaHolder waitingTaskHolder) override {
     const auto& wrapper = ev.get(inputToken_);
+    const auto& geometry = es.getData(geometryToken_);
 
     // Sets the current device and creates a CUDA stream
     cms::cuda::ScopedContextAcquire ctx{wrapper, std::move(waitingTaskHolder)};
@@ -165,7 +81,7 @@ public:
     const auto& input = ctx.get(wrapper);
     // Queues asynchronous data transfers and kernels to the CUDA stream
     // returned by cms::cuda::ScopedContextAcquire::stream()
-    gpuAlgo_.makeGlobal(const_cast<SiStripClustersCUDA&>(input), clusters_g, ctx.stream());
+    gpuAlgo_.makeGlobal(input, geometry.getGPUProductAsync(ctx.stream()), clusters_g, ctx.stream());
     hostView_x = clusters_g.hostView(SiStripClustersCUDA::kClusterMaxStrips, ctx.stream());
 
     // Destructor of ctx queues a callback to the CUDA stream notifying
@@ -192,19 +108,17 @@ public:
     const auto detid = clust_data->clusterDetId_h.get();
     const auto barycenter = clust_data->barycenter_h.get();
 
-
     std::vector<std::vector<float>> set_barycenters(lnc.nLayers());
     std::vector<std::vector<int>> set_detIds(lnc.nLayers());
     std::vector<mkfit::HitVec> mkFitHits(lnc.nLayers());
 
-    for(int j=0;j<static_cast<int>(lnc.nLayers());j++){
+    for (int j = 0; j < static_cast<int>(lnc.nLayers()); j++) {
       mkFitHits[j].reserve(5000);
       set_barycenters[j].reserve(5000);
       set_detIds[j].reserve(5000);
     }
-    
-    edm::ESHandle<TrackerTopology> ttopo;
-    es.get<TrackerTopologyRcd>().get(ttopo);
+
+    const auto& ttopo = es.getData(topologyToken_);
     using SVector3 = ROOT::Math::SVector<float, 3>;
     using SMatrixSym33 = ROOT::Math::SMatrix<float, 3, 3, ROOT::Math::MatRepSym<float, 3>>;
     std::vector<uint8_t> adcs;
@@ -222,8 +136,8 @@ public:
       err.At(1, 2) = global_yz[i];
       err.At(2, 2) = global_zz[i];
       int subdet = (detid[i] >> 25) & 0x7;
-      bool stereoraw = ttopo->isStereo(detid[i]);
-      bool plusraw = (ttopo->side(detid[i]) == static_cast<unsigned>(TrackerDetSide::PosEndcap));
+      bool stereoraw = ttopo.isStereo(detid[i]);
+      bool plusraw = (ttopo.side(detid[i]) == static_cast<unsigned>(TrackerDetSide::PosEndcap));
       const auto ilay = lnc.convertLayerNumber(subdet, layer[i], false, stereoraw, plusraw);
       mkFitHits[ilay].emplace_back(pos, err, totalHits);
       set_barycenters[ilay].emplace_back(barycenter[i]);
@@ -231,12 +145,11 @@ public:
       ++totalHits;
     }
 
+    mkFitHits.shrink_to_fit();
+    set_barycenters.shrink_to_fit();
+    set_detIds.shrink_to_fit();
 
-      mkFitHits.shrink_to_fit();
-      set_barycenters.shrink_to_fit();
-      set_detIds.shrink_to_fit();
-
-    ev.emplace(outputToken_,std::move(mkFitHits),totalHits,std::move(set_barycenters),std::move(set_detIds));
+    ev.emplace(outputToken_, std::move(mkFitHits), totalHits, std::move(set_barycenters), std::move(set_detIds));
   }
 
 private:
@@ -248,9 +161,11 @@ private:
   edm::EDPutTokenT<MkFitRecHitWrapper> outputToken_;
   edm::EDGetTokenT<MkFitHitWrapper> pixelhitToken_;
 
-const TrackerGeometry* tkG;
-};
+  edm::ESGetToken<SiStripGPULocalToGlobalMap, SiStripGPULocalToGlobalMapRcd> geometryToken_;
+  edm::ESGetToken<TrackerTopology, TrackerTopologyRcd> topologyToken_;
 
+  const TrackerGeometry* tkG;
+};
 
 void MkFitSiStripHitsFromSOA::fillDescriptions(edm::ConfigurationDescriptions& descriptions) {
   edm::ParameterSetDescription desc;

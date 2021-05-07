@@ -24,7 +24,7 @@ public:
 
   MkFitHitIndexMap const& hitIndexMap() const { return hitIndexMap_; }
   std::vector<mkfit::HitVec> const& hits() const { return hits_; }
-  int const& totalHits() const{ return totalHits_;}
+  int const& totalHits() const { return totalHits_; }
 
 private:
   MkFitHitIndexMap hitIndexMap_;

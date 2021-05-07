@@ -320,60 +320,54 @@ namespace stripgpu {
                                          float* g_zz,
                                          int elem,
                                          short i,
-//                                         float* l_xx,
-//                                         float* l_xy,
-//                                         float* l_yy,
-//                                         float* local,
+                                         //                                         float* l_xx,
+                                         //                                         float* l_xy,
+                                         //                                         float* l_yy,
+                                         //                                         float* local,
                                          const LocalToGlobalMap* map_d) {
-//    int deti = map_d->det_num_bd[i];
-//    if (deti == (int)detid) {
-      double pitch = map_d->pitch_bd[i];
-      double offset = map_d->offset_bd[i];
-      double length = map_d->len_bd[i];
-      double pos_x = map_d->pos_x_bd[i];
-      double pos_y = map_d->pos_y_bd[i];
-      double pos_z = map_d->pos_z_bd[i];
-      double drift_x = map_d->drift_x_bd[i];
-      double thickness = map_d->thickness_bd[i];
-      double backPlane = map_d->backPlane_bd[i];
-      double R11 = map_d->R11_bd[i];
-      double R12 = map_d->R12_bd[i];
-      double R13 = map_d->R13_bd[i];
-      double R21 = map_d->R21_bd[i];
-      double R22 = map_d->R22_bd[i];
-      double R23 = map_d->R23_bd[i];
+    //    int deti = map_d->det_num_bd[i];
+    //    if (deti == (int)detid) {
+    double pitch = map_d->pitch_bd[i];
+    double offset = map_d->offset_bd[i];
+    double length = map_d->len_bd[i];
+    double pos_x = map_d->pos_x_bd[i];
+    double pos_y = map_d->pos_y_bd[i];
+    double pos_z = map_d->pos_z_bd[i];
+    double drift_x = map_d->drift_x_bd[i];
+    double thickness = map_d->thickness_bd[i];
+    double backPlane = map_d->backPlane_bd[i];
+    double R11 = map_d->R11_bd[i];
+    double R12 = map_d->R12_bd[i];
+    double R13 = map_d->R13_bd[i];
+    double R21 = map_d->R21_bd[i];
+    double R22 = map_d->R22_bd[i];
+    double R23 = map_d->R23_bd[i];
 
-      double fullProjection = (drift_x * thickness) / pitch;
-      double localPoint_corrected = (strip_num - 0.5f * (1.f - backPlane) * fullProjection);
-      double localPoint = localPoint_corrected * pitch + offset;
-      double localError_xx = pitch * pitch * rec_12;
-      double localError_yy = length * length * rec_12;
-      double localError_xy = 0;  //rec_12*pitch*length;
+    double fullProjection = (drift_x * thickness) / pitch;
+    double localPoint_corrected = (strip_num - 0.5f * (1.f - backPlane) * fullProjection);
+    double localPoint = localPoint_corrected * pitch + offset;
+    double localError_xx = pitch * pitch * rec_12;
+    double localError_yy = length * length * rec_12;
+    double localError_xy = 0;  //rec_12*pitch*length;
 
-      double global_x = R11 * localPoint + pos_x;
-      double global_y = R12 * localPoint + pos_y;
-      double global_z = R13 * localPoint + pos_z;
+    double global_x = R11 * localPoint + pos_x;
+    double global_y = R12 * localPoint + pos_y;
+    double global_z = R13 * localPoint + pos_z;
 
-      g_x[elem] = R11 * localPoint + pos_x;
-      g_y[elem] = R12 * localPoint + pos_y;
-      g_z[elem] = R13 * localPoint + pos_z;
-      g_xx[elem] =
-          R11 * (R11 * localError_xx + R21 * localError_xy) + R21 * (R11 * localError_xy + R21 * localError_yy);
-      g_xy[elem] =
-          R11 * (R12 * localError_xx + R22 * localError_xy) + R21 * (R12 * localError_xy + R22 * localError_yy);
-      g_yy[elem] =
-          R12 * (R12 * localError_xx + R22 * localError_xy) + R22 * (R12 * localError_xy + R22 * localError_yy);
-      g_xz[elem] =
-          R11 * (R13 * localError_xx + R23 * localError_xy) + R21 * (R13 * localError_xy + R23 * localError_yy);
-      g_yz[elem] =
-          R12 * (R13 * localError_xx + R23 * localError_xy) + R22 * (R13 * localError_xy + R23 * localError_yy);
-      g_zz[elem] =
-          R13 * (R13 * localError_xx + R23 * localError_xy) + R23 * (R13 * localError_xy + R23 * localError_yy);
-//      l_xx[elem] = localError_xx;
-//      l_xy[elem] = localError_xy;
-//      l_yy[elem] = localError_yy;
-//      local[elem] = localPoint;
-//    }
+    g_x[elem] = R11 * localPoint + pos_x;
+    g_y[elem] = R12 * localPoint + pos_y;
+    g_z[elem] = R13 * localPoint + pos_z;
+    g_xx[elem] = R11 * (R11 * localError_xx + R21 * localError_xy) + R21 * (R11 * localError_xy + R21 * localError_yy);
+    g_xy[elem] = R11 * (R12 * localError_xx + R22 * localError_xy) + R21 * (R12 * localError_xy + R22 * localError_yy);
+    g_yy[elem] = R12 * (R12 * localError_xx + R22 * localError_xy) + R22 * (R12 * localError_xy + R22 * localError_yy);
+    g_xz[elem] = R11 * (R13 * localError_xx + R23 * localError_xy) + R21 * (R13 * localError_xy + R23 * localError_yy);
+    g_yz[elem] = R12 * (R13 * localError_xx + R23 * localError_xy) + R22 * (R13 * localError_xy + R23 * localError_yy);
+    g_zz[elem] = R13 * (R13 * localError_xx + R23 * localError_xy) + R23 * (R13 * localError_xy + R23 * localError_yy);
+    //      l_xx[elem] = localError_xx;
+    //      l_xy[elem] = localError_xy;
+    //      l_yy[elem] = localError_yy;
+    //      local[elem] = localPoint;
+    //    }
   }
 
   __device__ __constant__ float tanPi8 = 0.4142135623730950;
@@ -397,86 +391,79 @@ namespace stripgpu {
                                          float* g_zz,
                                          int elem,
                                          short i,
-//                                         float* l_xx,
-//                                         float* l_xy,
-//                                         float* l_yy,
-//                                         float* local,
+                                         //                                         float* l_xx,
+                                         //                                         float* l_xy,
+                                         //                                         float* l_yy,
+                                         //                                         float* local,
                                          const LocalToGlobalMap* map_d) {
-//    int deti = map_d->det_num_ed[i];
-//    if (deti == (int)detid) {
-      int yAx = map_d->yAx_ed[i];
-      double rCross = map_d->rCross_ed[i];
-      double aw = map_d->aw_ed[i];
-      double phi = map_d->phi_ed[i];
-      double length = map_d->len_ed[i];
-      double pos_x = map_d->pos_x_ed[i];
-      double pos_y = map_d->pos_y_ed[i];
-      double pos_z = map_d->pos_z_ed[i];
-      double R11 = map_d->R11_ed[i];
-      double R12 = map_d->R12_ed[i];
-      double R13 = map_d->R13_ed[i];
-      double R21 = map_d->R21_ed[i];
-      double R22 = map_d->R22_ed[i];
-      double R23 = map_d->R23_ed[i];
-      double drift_x = map_d->drift_x_ed[i];
-      double drift_y = map_d->drift_y_ed[i];
-      double thickness = map_d->thickness_ed[i];
-      double backPlane = map_d->backPlane_ed[i];
+    //    int deti = map_d->det_num_ed[i];
+    //    if (deti == (int)detid) {
+    int yAx = map_d->yAx_ed[i];
+    double rCross = map_d->rCross_ed[i];
+    double aw = map_d->aw_ed[i];
+    double phi = map_d->phi_ed[i];
+    double length = map_d->len_ed[i];
+    double pos_x = map_d->pos_x_ed[i];
+    double pos_y = map_d->pos_y_ed[i];
+    double pos_z = map_d->pos_z_ed[i];
+    double R11 = map_d->R11_ed[i];
+    double R12 = map_d->R12_ed[i];
+    double R13 = map_d->R13_ed[i];
+    double R21 = map_d->R21_ed[i];
+    double R22 = map_d->R22_ed[i];
+    double R23 = map_d->R23_ed[i];
+    double drift_x = map_d->drift_x_ed[i];
+    double drift_y = map_d->drift_y_ed[i];
+    double thickness = map_d->thickness_ed[i];
+    double backPlane = map_d->backPlane_ed[i];
 
-      double stripAngle = yAx * (phi + strip_num * aw);
-      double tan15 =
-          stripAngle * (1 + (stripAngle * stripAngle) * (tan15_val1 + (stripAngle * stripAngle) * tan15_val2));
-      double localPoint_uncorrected = yAx * rCross * tan15;
-      double x1 = localPoint_uncorrected + 0.5f * drift_x * thickness;
-      double x2 = localPoint_uncorrected - 0.5f * drift_x * thickness;
-      double y1 = rCross + yAx * 0.5 * drift_y * thickness;
-      double fullProjection_t = (y1 * x1 - y1 * x2) / (y1 * y1 + x1 * x2);
+    double stripAngle = yAx * (phi + strip_num * aw);
+    double tan15 = stripAngle * (1 + (stripAngle * stripAngle) * (tan15_val1 + (stripAngle * stripAngle) * tan15_val2));
+    double localPoint_uncorrected = yAx * rCross * tan15;
+    double x1 = localPoint_uncorrected + 0.5f * drift_x * thickness;
+    double x2 = localPoint_uncorrected - 0.5f * drift_x * thickness;
+    double y1 = rCross + yAx * 0.5 * drift_y * thickness;
+    double fullProjection_t = (y1 * x1 - y1 * x2) / (y1 * y1 + x1 * x2);
 
-      short sgn = fullProjection_t < 0 ? -1 : 1;
-      double atanclip = (sgn * fullProjection_t < tanPi8)
-                            ? sgn * ((((atanclip_val1 * fullProjection_t * fullProjection_t - atanclip_val2) *
-                                           fullProjection_t * fullProjection_t +
-                                       atanclip_val3) *
-                                          fullProjection_t * fullProjection_t -
-                                      atanclip_val4) *
-                                         fullProjection_t * fullProjection_t * sgn * fullProjection_t +
-                                     sgn * fullProjection_t)
-                            : sgn * pio8;
-      double fullProjection = atanclip / aw;
+    short sgn = fullProjection_t < 0 ? -1 : 1;
+    double atanclip = (sgn * fullProjection_t < tanPi8)
+                          ? sgn * ((((atanclip_val1 * fullProjection_t * fullProjection_t - atanclip_val2) *
+                                         fullProjection_t * fullProjection_t +
+                                     atanclip_val3) *
+                                        fullProjection_t * fullProjection_t -
+                                    atanclip_val4) *
+                                       fullProjection_t * fullProjection_t * sgn * fullProjection_t +
+                                   sgn * fullProjection_t)
+                          : sgn * pio8;
+    double fullProjection = atanclip / aw;
 
-      double localPoint_corrected = (strip_num - 0.5f * (1.f - backPlane) * fullProjection);
-      double stripAnglex = yAx * (phi + localPoint_corrected * aw);
-      double tan15x =
-          stripAnglex * (1 + (stripAnglex * stripAnglex) * (tan15_val1 + (stripAnglex * stripAnglex) * tan15_val2));
-      double localPoint = yAx * rCross * tan15x;
+    double localPoint_corrected = (strip_num - 0.5f * (1.f - backPlane) * fullProjection);
+    double stripAnglex = yAx * (phi + localPoint_corrected * aw);
+    double tan15x =
+        stripAnglex * (1 + (stripAnglex * stripAnglex) * (tan15_val1 + (stripAnglex * stripAnglex) * tan15_val2));
+    double localPoint = yAx * rCross * tan15x;
 
-      double t2 = tan15 * tan15;
-      double tt = rec_12 * rCross * rCross * aw * aw;
-      double rr = rec_12 * length * length;
-      double localError_xx = tt + t2 * rr;
-      double localError_yy = tt * t2 + rr;
-      double localError_xy = tan15 * (rr - tt);
+    double t2 = tan15 * tan15;
+    double tt = rec_12 * rCross * rCross * aw * aw;
+    double rr = rec_12 * length * length;
+    double localError_xx = tt + t2 * rr;
+    double localError_yy = tt * t2 + rr;
+    double localError_xy = tan15 * (rr - tt);
 
-      g_x[elem] = R11 * localPoint + pos_x;
-      g_y[elem] = R12 * localPoint + pos_y;
-      g_z[elem] = R13 * localPoint + pos_z;
-      g_xx[elem] =
-          R11 * (R11 * localError_xx + R21 * localError_xy) + R21 * (R11 * localError_xy + R21 * localError_yy);
-      g_xy[elem] =
-          R11 * (R12 * localError_xx + R22 * localError_xy) + R21 * (R12 * localError_xy + R22 * localError_yy);
-      g_yy[elem] =
-          R12 * (R12 * localError_xx + R22 * localError_xy) + R22 * (R12 * localError_xy + R22 * localError_yy);
-      g_xz[elem] =
-          R11 * (R13 * localError_xx + R23 * localError_xy) + R21 * (R13 * localError_xy + R23 * localError_yy);
-      g_yz[elem] =
-          R12 * (R13 * localError_xx + R23 * localError_xy) + R22 * (R13 * localError_xy + R23 * localError_yy);
-      g_zz[elem] =
-          R13 * (R13 * localError_xx + R23 * localError_xy) + R23 * (R13 * localError_xy + R23 * localError_yy);
-//      local[elem] = localPoint;
-//      l_xx[elem] = localError_xx;
-//      l_xy[elem] = localError_xy;
-//      l_yy[elem] = localError_yy;
-//    }
+    g_x[elem] = R11 * localPoint + pos_x;
+    g_y[elem] = R12 * localPoint + pos_y;
+    g_z[elem] = R13 * localPoint + pos_z;
+    g_xx[elem] = R11 * (R11 * localError_xx + R21 * localError_xy) + R21 * (R11 * localError_xy + R21 * localError_yy);
+    g_xy[elem] = R11 * (R12 * localError_xx + R22 * localError_xy) + R21 * (R12 * localError_xy + R22 * localError_yy);
+    g_yy[elem] = R12 * (R12 * localError_xx + R22 * localError_xy) + R22 * (R12 * localError_xy + R22 * localError_yy);
+    g_xz[elem] = R11 * (R13 * localError_xx + R23 * localError_xy) + R21 * (R13 * localError_xy + R23 * localError_yy);
+    g_yz[elem] = R12 * (R13 * localError_xx + R23 * localError_xy) + R22 * (R13 * localError_xy + R23 * localError_yy);
+    g_zz[elem] = R13 * (R13 * localError_xx + R23 * localError_xy) + R23 * (R13 * localError_xy + R23 * localError_yy);
+    //      local[elem] = localPoint;
+    //      l_xx[elem] = localError_xx;
+    //      l_xy[elem] = localError_xy;
+    //      l_yy[elem] = localError_yy;
+    //    }
   }
   __global__ static void localToGlobal(SiStripClustersCUDA::DeviceView* clust_data_d,
                                        MkFitSiStripClustersCUDA::GlobalDeviceView* global_data_d,
@@ -484,10 +471,10 @@ namespace stripgpu {
                                        const LocalToGlobalMap* map_d) {
     float* __restrict__ barycenter = clust_data_d->barycenter_;
     bool* __restrict__ trueCluster = clust_data_d->trueCluster_;
-//    float* __restrict__ local_xx = global_data_d->local_xx_;
-//    float* __restrict__ local_xy = global_data_d->local_xy_;
-//    float* __restrict__ local_yy = global_data_d->local_yy_;
-//    float* __restrict__ local = global_data_d->local_;
+    //    float* __restrict__ local_xx = global_data_d->local_xx_;
+    //    float* __restrict__ local_xy = global_data_d->local_xy_;
+    //    float* __restrict__ local_yy = global_data_d->local_yy_;
+    //    float* __restrict__ local = global_data_d->local_;
     float* __restrict__ global_x = global_data_d->global_x_;
     float* __restrict__ global_y = global_data_d->global_y_;
     float* __restrict__ global_z = global_data_d->global_z_;
@@ -507,14 +494,14 @@ namespace stripgpu {
 
     auto detids = clust_data_d->clusterDetId_;
     auto gdetids = global_data_d->clusterDetId_;
-   // auto clusterindex = clust_data_d->clusterIndex_;
-   // auto gclusterindex = global_data_d->clusterIndex_;
-   // auto clusterADCs = clust_data_d->clusterADCs_;
-   // auto gclusterADCs = global_data_d->clusterADCs_;
-   // auto clusterfirst = clust_data_d->firstStrip_;
-   // auto gclusterfirst = global_data_d->firstStrip_;
-   // auto clustersize = clust_data_d->clusterSize_;
-   // auto gclustersize = global_data_d->clusterSize_;
+    // auto clusterindex = clust_data_d->clusterIndex_;
+    // auto gclusterindex = global_data_d->clusterIndex_;
+    // auto clusterADCs = clust_data_d->clusterADCs_;
+    // auto gclusterADCs = global_data_d->clusterADCs_;
+    // auto clusterfirst = clust_data_d->firstStrip_;
+    // auto gclusterfirst = global_data_d->firstStrip_;
+    // auto clustersize = clust_data_d->clusterSize_;
+    // auto gclustersize = global_data_d->clusterSize_;
 
     static const int kSubDetOffset = 25;
     static const int kSubDetMask = 0x7;
@@ -534,102 +521,103 @@ namespace stripgpu {
       //  continue;
       //}
       if (trueCluster[i]) {
-      const auto subdet = (detid >> kSubDetOffset) & kSubDetMask;
-      short tex_index = -1;
-      barycenterg[i] = barycenter[i];
-      //gclusterindex[i] = clusterindex[i];
-      //gclusterADCs[i] = clusterADCs[i];
-      //gclusterfirst[i] = clusterfirst[i];
-      //gclustersize[i] = clustersize[i];
-      if (subdet == 3) {  //run barrel
-        tex_index = indexer3[index_lookup3(detid)];
-        getGlobalBarrel(detid,
-                        barycenter[i],
-                        global_x,
-                        global_y,
-                        global_z,
-                        global_xx,
-                        global_xy,
-                        global_xz,
-                        global_yy,
-                        global_yz,
-                        global_zz,
-                        i,
-                        tex_index,
-//                        local_xx,
-//                        local_xy,
-//                        local_yy,
-//                        local,
-                        map_d);
-        layer[i] = ((detid >> 14) & 0x7);
-      } else if (subdet == 5) {  // run barrel
-        tex_index = indexer5[index_lookup5(detid)];
-        getGlobalBarrel(detid,
-                        barycenter[i],
-                        global_x,
-                        global_y,
-                        global_z,
-                        global_xx,
-                        global_xy,
-                        global_xz,
-                        global_yy,
-                        global_yz,
-                        global_zz,
-                        i,
-                        tex_index,
-//                        local_xx,
-//                        local_xy,
-//                        local_yy,
-//                        local,
-                        map_d);
-        layer[i] = ((detid >> 14) & 0x7);
-      } else if (subdet == 4) {  //run endcap
-        tex_index = indexer4[index_lookup4(detid)];
-        getGlobalEndcap(detid,
-                        barycenter[i],
-                        global_x,
-                        global_y,
-                        global_z,
-                        global_xx,
-                        global_xy,
-                        global_xz,
-                        global_yy,
-                        global_yz,
-                        global_zz,
-                        i,
-                        tex_index,
-//                        local_xx,
-//                        local_xy,
-//                        local_yy,
-//                        local,
-                        map_d);
-        layer[i] = ((detid >> 11) & 0x3);
-      } else if (subdet == 6) {  // run endcap
-        tex_index = indexer6[index_lookup6(detid)];
-        getGlobalEndcap(detid,
-                        barycenter[i],
-                        global_x,
-                        global_y,
-                        global_z,
-                        global_xx,
-                        global_xy,
-                        global_xz,
-                        global_yy,
-                        global_yz,
-                        global_zz,
-                        i,
-                        tex_index,
-//                        local_xx,
-//                        local_xy,
-//                        local_yy,
-//                        local,
-                        map_d);
-        layer[i] = ((detid >> 14) & 0xF);
+        const auto subdet = (detid >> kSubDetOffset) & kSubDetMask;
+        short tex_index = -1;
+        barycenterg[i] = barycenter[i];
+        //gclusterindex[i] = clusterindex[i];
+        //gclusterADCs[i] = clusterADCs[i];
+        //gclusterfirst[i] = clusterfirst[i];
+        //gclustersize[i] = clustersize[i];
+        if (subdet == 3) {  //run barrel
+          tex_index = indexer3[index_lookup3(detid)];
+          getGlobalBarrel(detid,
+                          barycenter[i],
+                          global_x,
+                          global_y,
+                          global_z,
+                          global_xx,
+                          global_xy,
+                          global_xz,
+                          global_yy,
+                          global_yz,
+                          global_zz,
+                          i,
+                          tex_index,
+                          //                        local_xx,
+                          //                        local_xy,
+                          //                        local_yy,
+                          //                        local,
+                          map_d);
+          layer[i] = ((detid >> 14) & 0x7);
+        } else if (subdet == 5) {  // run barrel
+          tex_index = indexer5[index_lookup5(detid)];
+          getGlobalBarrel(detid,
+                          barycenter[i],
+                          global_x,
+                          global_y,
+                          global_z,
+                          global_xx,
+                          global_xy,
+                          global_xz,
+                          global_yy,
+                          global_yz,
+                          global_zz,
+                          i,
+                          tex_index,
+                          //                        local_xx,
+                          //                        local_xy,
+                          //                        local_yy,
+                          //                        local,
+                          map_d);
+          layer[i] = ((detid >> 14) & 0x7);
+        } else if (subdet == 4) {  //run endcap
+          tex_index = indexer4[index_lookup4(detid)];
+          getGlobalEndcap(detid,
+                          barycenter[i],
+                          global_x,
+                          global_y,
+                          global_z,
+                          global_xx,
+                          global_xy,
+                          global_xz,
+                          global_yy,
+                          global_yz,
+                          global_zz,
+                          i,
+                          tex_index,
+                          //                        local_xx,
+                          //                        local_xy,
+                          //                        local_yy,
+                          //                        local,
+                          map_d);
+          layer[i] = ((detid >> 11) & 0x3);
+        } else if (subdet == 6) {  // run endcap
+          tex_index = indexer6[index_lookup6(detid)];
+          getGlobalEndcap(detid,
+                          barycenter[i],
+                          global_x,
+                          global_y,
+                          global_z,
+                          global_xx,
+                          global_xy,
+                          global_xz,
+                          global_yy,
+                          global_yz,
+                          global_zz,
+                          i,
+                          tex_index,
+                          //                        local_xx,
+                          //                        local_xy,
+                          //                        local_yy,
+                          //                        local,
+                          map_d);
+          layer[i] = ((detid >> 14) & 0xF);
+        }
       }
     }
   }
-}
-  void MkFitSiStripHitGPUKernel::makeGlobal(SiStripClustersCUDA& clusters_d_x,
+  void MkFitSiStripHitGPUKernel::makeGlobal(const SiStripClustersCUDA& clusters_d_x,
+                                            const LocalToGlobalMap* map_d,
                                             MkFitSiStripClustersCUDA& clusters_g_x,
                                             cudaStream_t stream) {
     auto clust_data_d = clusters_d_x.view();
@@ -640,7 +628,6 @@ namespace stripgpu {
     const int nthreads = 128;
     const int nSeeds = std::min(MAX_SEEDSTRIPS, nStrips);
     const int nblocks = (nStrips + nthreads - 1) / nthreads;
-    auto map_d = toDevice();
     localToGlobal<<<nblocks, nthreads, 0, stream>>>(clust_data_d, global_data_d, nStrips, map_d);
     cudaCheck(cudaGetLastError());
   }

@@ -62,7 +62,7 @@ private:
   using SMatrixSym33 = ROOT::Math::SMatrix<float, 3, 3, ROOT::Math::MatRepSym<float, 3>>;
   using SMatrixSym66 = ROOT::Math::SMatrix<float, 6, 6, ROOT::Math::MatRepSym<float, 6>>;
 
-//  edm::EDGetTokenT<SiPixelRecHitCollection> pixelRecHitToken_;
+  //  edm::EDGetTokenT<SiPixelRecHitCollection> pixelRecHitToken_;
   edm::EDGetTokenT<MkFitHitWrapper> pixelhitToken_;
   edm::EDGetTokenT<SiStripRecHit2DCollection> stripRphiRecHitToken_;
   edm::EDGetTokenT<SiStripRecHit2DCollection> stripStereoRecHitToken_;
@@ -74,7 +74,7 @@ private:
 };
 
 MkFitStripConverter::MkFitStripConverter(edm::ParameterSet const& iConfig)
-    : //pixelRecHitToken_{consumes<SiPixelRecHitCollection>(iConfig.getParameter<edm::InputTag>("pixelRecHits"))},
+    :  //pixelRecHitToken_{consumes<SiPixelRecHitCollection>(iConfig.getParameter<edm::InputTag>("pixelRecHits"))},
       pixelhitToken_{consumes<MkFitHitWrapper>(iConfig.getParameter<edm::InputTag>("pixelhits"))},
       stripRphiRecHitToken_{
           consumes<SiStripRecHit2DCollection>(iConfig.getParameter<edm::InputTag>("stripRphiRecHits"))},
@@ -115,13 +115,14 @@ void MkFitStripConverter::produce(edm::StreamID iID, edm::Event& iEvent, const e
   //MkFitHitIndexMap hitIndexMap;
   MkFitHitIndexMap hitIndexMap = iEvent.get(pixelhitToken_).hitIndexMap();
   //int totalHits = 0;  // I need to have a global hit index in order to have the hit remapping working?
-  int totalHits = iEvent.get(pixelhitToken_).totalHits();  // I need to have a global hit index in order to have the hit remapping working?
+  int totalHits = iEvent.get(pixelhitToken_)
+                      .totalHits();  // I need to have a global hit index in order to have the hit remapping working?
   // Process strips first for better memory allocation pattern
   convertHits(iEvent.get(stripRphiRecHitToken_), mkFitHits, hitIndexMap, totalHits, ttopo, ttrhBuilder, mkFitGeom);
   convertHits(iEvent.get(stripStereoRecHitToken_), mkFitHits, hitIndexMap, totalHits, ttopo, ttrhBuilder, mkFitGeom);
   //convertHits(iEvent.get(pixelRecHitToken_), mkFitHits, hitIndexMap, totalHits, ttopo, ttrhBuilder, mkFitGeom);
 
-  iEvent.emplace(putToken_, std::move(hitIndexMap), std::move(mkFitHits),totalHits);
+  iEvent.emplace(putToken_, std::move(hitIndexMap), std::move(mkFitHits), totalHits);
 }
 
 float MkFitStripConverter::clusterCharge(const SiStripRecHit2D& hit, DetId hitId) const {
@@ -143,12 +144,12 @@ void MkFitStripConverter::setDetails(mkfit::Hit& mhit, const SiStripCluster& clu
 
 template <typename HitCollection>
 void MkFitStripConverter::convertHits(const HitCollection& hits,
-                                    std::vector<mkfit::HitVec>& mkFitHits,
-                                    MkFitHitIndexMap& hitIndexMap,
-                                    int& totalHits,
-                                    const TrackerTopology& ttopo,
-                                    const TransientTrackingRecHitBuilder& ttrhBuilder,
-                                    const MkFitGeometry& mkFitGeom) const {
+                                      std::vector<mkfit::HitVec>& mkFitHits,
+                                      MkFitHitIndexMap& hitIndexMap,
+                                      int& totalHits,
+                                      const TrackerTopology& ttopo,
+                                      const TransientTrackingRecHitBuilder& ttrhBuilder,
+                                      const MkFitGeometry& mkFitGeom) const {
   if (hits.empty())
     return;
   auto isPlusSide = [&ttopo](const DetId& detid) {
@@ -192,15 +193,15 @@ void MkFitStripConverter::convertHits(const HitCollection& hits,
       err.At(1, 2) = gerr.czy();
 
       LogTrace("MkFitStripConverter") << "Adding hit detid " << detid.rawId() << " subdet " << subdet << " layer "
-                                    << layer << " isStereo " << isStereo << " zplus " << isPlusSide(detid) << " ilay "
-                                    << ilay;
+                                      << layer << " isStereo " << isStereo << " zplus " << isPlusSide(detid) << " ilay "
+                                      << ilay;
 
       hitIndexMap.insert(hit.firstClusterRef().id(),
                          hit.firstClusterRef().index(),
                          MkFitHitIndexMap::MkFitHit{static_cast<int>(mkFitHits[ilay].size()), ilay},
                          &hit);
       mkFitHits[ilay].emplace_back(pos, err, totalHits);
-//      printf("this runs the strips\n");
+      //      printf("this runs the strips\n");
       setDetails(mkFitHits[ilay].back(), *(hit.cluster()), uniqueIdInLayer, charge);
       ++totalHits;
     }

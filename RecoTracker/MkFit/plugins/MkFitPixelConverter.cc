@@ -115,7 +115,7 @@ void MkFitPixelConverter::produce(edm::StreamID iID, edm::Event& iEvent, const e
   //convertHits(iEvent.get(stripStereoRecHitToken_), mkFitHits, hitIndexMap, totalHits, ttopo, ttrhBuilder, mkFitGeom);
   convertHits(iEvent.get(pixelRecHitToken_), mkFitHits, hitIndexMap, totalHits, ttopo, ttrhBuilder, mkFitGeom);
 
-  iEvent.emplace(putToken_, std::move(hitIndexMap), std::move(mkFitHits),totalHits);
+  iEvent.emplace(putToken_, std::move(hitIndexMap), std::move(mkFitHits), totalHits);
 }
 
 float MkFitPixelConverter::clusterCharge(const SiStripRecHit2D& hit, DetId hitId) const {
@@ -137,12 +137,12 @@ void MkFitPixelConverter::setDetails(mkfit::Hit& mhit, const SiStripCluster& clu
 
 template <typename HitCollection>
 void MkFitPixelConverter::convertHits(const HitCollection& hits,
-                                    std::vector<mkfit::HitVec>& mkFitHits,
-                                    MkFitHitIndexMap& hitIndexMap,
-                                    int& totalHits,
-                                    const TrackerTopology& ttopo,
-                                    const TransientTrackingRecHitBuilder& ttrhBuilder,
-                                    const MkFitGeometry& mkFitGeom) const {
+                                      std::vector<mkfit::HitVec>& mkFitHits,
+                                      MkFitHitIndexMap& hitIndexMap,
+                                      int& totalHits,
+                                      const TrackerTopology& ttopo,
+                                      const TransientTrackingRecHitBuilder& ttrhBuilder,
+                                      const MkFitGeometry& mkFitGeom) const {
   if (hits.empty())
     return;
   auto isPlusSide = [&ttopo](const DetId& detid) {
@@ -186,15 +186,15 @@ void MkFitPixelConverter::convertHits(const HitCollection& hits,
       err.At(1, 2) = gerr.czy();
 
       LogTrace("MkFitPixelConverter") << "Adding hit detid " << detid.rawId() << " subdet " << subdet << " layer "
-                                    << layer << " isStereo " << isStereo << " zplus " << isPlusSide(detid) << " ilay "
-                                    << ilay;
+                                      << layer << " isStereo " << isStereo << " zplus " << isPlusSide(detid) << " ilay "
+                                      << ilay;
 
       hitIndexMap.insert(hit.firstClusterRef().id(),
                          hit.firstClusterRef().index(),
                          MkFitHitIndexMap::MkFitHit{static_cast<int>(mkFitHits[ilay].size()), ilay},
                          &hit);
       mkFitHits[ilay].emplace_back(pos, err, totalHits);
-//      printf("this runs the pixels!\n");
+      //      printf("this runs the pixels!\n");
       setDetails(mkFitHits[ilay].back(), *(hit.cluster()), uniqueIdInLayer, charge);
       ++totalHits;
     }

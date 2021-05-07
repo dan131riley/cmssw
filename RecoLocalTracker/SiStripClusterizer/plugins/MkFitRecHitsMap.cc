@@ -52,24 +52,28 @@
 class MkFitSiStripRecHitsMap final : public edm::stream::EDProducer<edm::ExternalWork> {
 public:
   explicit MkFitSiStripRecHitsMap(const edm::ParameterSet& conf) {
-    stripRphiRecHitToken_= consumes<SiStripRecHit2DCollection>(conf.getParameter<edm::InputTag>("stripRphiRecHits"));
-    stripStereoRecHitToken_ = consumes<SiStripRecHit2DCollection>(conf.getParameter<edm::InputTag>("stripStereoRecHits"));
+    stripRphiRecHitToken_ = consumes<SiStripRecHit2DCollection>(conf.getParameter<edm::InputTag>("stripRphiRecHits"));
+    stripStereoRecHitToken_ =
+        consumes<SiStripRecHit2DCollection>(conf.getParameter<edm::InputTag>("stripStereoRecHits"));
     outputToken_ = produces<MkFitHitWrapper>();
     pixelhitToken_ = consumes<MkFitHitWrapper>(conf.getParameter<edm::InputTag>("pixelhits"));
     striphitToken_ = consumes<MkFitRecHitWrapper>(conf.getParameter<edm::InputTag>("striphits"));
   }
 
   static void fillDescriptions(edm::ConfigurationDescriptions& descriptions);
-template <typename HitCollection>
-bool fillMap(const HitCollection& hits, unsigned int detid, float barycenter,int size,int ilay, MkFitHitIndexMap& hitIndexMap);
+  template <typename HitCollection>
+  bool fillMap(const HitCollection& hits,
+               unsigned int detid,
+               float barycenter,
+               int size,
+               int ilay,
+               MkFitHitIndexMap& hitIndexMap);
 
-  void beginRun(const edm::Run&, const edm::EventSetup& es) override {
-  }
+  void beginRun(const edm::Run&, const edm::EventSetup& es) override {}
 
   void acquire(edm::Event const& ev,
                edm::EventSetup const& es,
-               edm::WaitingTaskWithArenaHolder waitingTaskHolder) override {
-  }
+               edm::WaitingTaskWithArenaHolder waitingTaskHolder) override {}
 
   void produce(edm::Event& ev, const edm::EventSetup& es) override {
     MkFitHitIndexMap hitIndexMap = ev.get(pixelhitToken_).hitIndexMap();
@@ -78,24 +82,23 @@ bool fillMap(const HitCollection& hits, unsigned int detid, float barycenter,int
     std::vector<std::vector<float>> barycenters = ev.get(striphitToken_).barycenters();
     std::vector<std::vector<int>> detIds = ev.get(striphitToken_).detIds();
 
-
-    for( int ilay=0; ilay < static_cast<int>(strip_mkFitHits.size()); ilay++){
+    for (int ilay = 0; ilay < static_cast<int>(strip_mkFitHits.size()); ilay++) {
       int index = 0;
-      for(int i =0; i<static_cast<int>(strip_mkFitHits[ilay].size());i++){
+      for (int i = 0; i < static_cast<int>(strip_mkFitHits[ilay].size()); i++) {
         bool found_hit;
         int detid = detIds[ilay][i];
         float barycenter = barycenters[ilay][i];
-        found_hit = fillMap(ev.get(stripRphiRecHitToken_),detid,barycenter,index,ilay,hitIndexMap);
-        if(!found_hit){
-          found_hit = fillMap(ev.get(stripStereoRecHitToken_),detid,barycenter,index,ilay,hitIndexMap);
+        found_hit = fillMap(ev.get(stripRphiRecHitToken_), detid, barycenter, index, ilay, hitIndexMap);
+        if (!found_hit) {
+          found_hit = fillMap(ev.get(stripStereoRecHitToken_), detid, barycenter, index, ilay, hitIndexMap);
         }
-        if(found_hit){ 
+        if (found_hit) {
           mkFitHits[ilay].push_back(strip_mkFitHits[ilay][i]);
           index++;
         }
       }
     }
-    ev.emplace(outputToken_,std::move(hitIndexMap),std::move(mkFitHits),0);
+    ev.emplace(outputToken_, std::move(hitIndexMap), std::move(mkFitHits), 0);
   }
 
 private:
@@ -107,38 +110,47 @@ private:
   edm::EDGetTokenT<MkFitHitWrapper> pixelhitToken_;
   edm::EDGetTokenT<MkFitRecHitWrapper> striphitToken_;
 
-
   edm::EDGetTokenT<SiStripRecHit2DCollection> stripRphiRecHitToken_;
   edm::EDGetTokenT<SiStripRecHit2DCollection> stripStereoRecHitToken_;
   SiStripRecHit2DCollection rechits_stereo;
   SiStripRecHit2DCollection rechits_phi;
   edmNew::DetSetVector<SiStripRecHit2DCollection> rechits;
-const TrackerGeometry* tkG;
+  const TrackerGeometry* tkG;
 };
 
-
 template <typename HitCollection>
-inline bool MkFitSiStripRecHitsMap::fillMap(const HitCollection& hits, unsigned int detid, float barycenter, int size,int ilay, MkFitHitIndexMap& hitIndexMapx){
-      bool pass = false;
-      float bary_epsilon = 2;
-      for (const auto& detset: hits){
-        if(pass){break;}
-        const DetId detid_clust = detset.detId();
-        if(detid_clust.rawId() != detid) {continue;}
-        hitIndexMapx.increaseLayerSize(ilay, detset.size());
-        for (const auto& hit : detset) {
-          if(pass){break;}
-          auto bary = hit.cluster()->barycenter();
-          if (abs(bary - barycenter) > bary_epsilon) {continue;}
-          hitIndexMapx.insert(hit.firstClusterRef().id(),
-                         hit.firstClusterRef().index(),
-                         MkFitHitIndexMap::MkFitHit{size, ilay},
-                         &hit);
-          pass = true;
-          break;
-        }
+inline bool MkFitSiStripRecHitsMap::fillMap(const HitCollection& hits,
+                                            unsigned int detid,
+                                            float barycenter,
+                                            int size,
+                                            int ilay,
+                                            MkFitHitIndexMap& hitIndexMapx) {
+  bool pass = false;
+  float bary_epsilon = 2;
+  for (const auto& detset : hits) {
+    if (pass) {
+      break;
+    }
+    const DetId detid_clust = detset.detId();
+    if (detid_clust.rawId() != detid) {
+      continue;
+    }
+    hitIndexMapx.increaseLayerSize(ilay, detset.size());
+    for (const auto& hit : detset) {
+      if (pass) {
+        break;
       }
-      return pass;
+      auto bary = hit.cluster()->barycenter();
+      if (abs(bary - barycenter) > bary_epsilon) {
+        continue;
+      }
+      hitIndexMapx.insert(
+          hit.firstClusterRef().id(), hit.firstClusterRef().index(), MkFitHitIndexMap::MkFitHit{size, ilay}, &hit);
+      pass = true;
+      break;
+    }
+  }
+  return pass;
 }
 void MkFitSiStripRecHitsMap::fillDescriptions(edm::ConfigurationDescriptions& descriptions) {
   edm::ParameterSetDescription desc;

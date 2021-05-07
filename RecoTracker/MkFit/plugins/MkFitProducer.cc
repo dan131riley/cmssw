@@ -93,7 +93,7 @@ void MkFitProducer::fillDescriptions(edm::ConfigurationDescriptions& description
   edm::ParameterSetDescription desc;
 
   desc.add("pixelhits", edm::InputTag("mkFitPixelConverter"));
- // desc.add("striphits", edm::InputTag("mkFitStripConverter"));
+  // desc.add("striphits", edm::InputTag("mkFitStripConverter"));
   desc.add("seeds", edm::InputTag("mkFitSeedConverter"));
   desc.add<std::string>("buildingRoutine", "cloneEngine")
       ->setComment("Valid values are: 'bestHit', 'standard', 'cloneEngine'");
@@ -115,7 +115,7 @@ namespace {
 }
 void MkFitProducer::produce(edm::StreamID iID, edm::Event& iEvent, const edm::EventSetup& iSetup) const {
   const auto& pixelhits = iEvent.get(pixelhitToken_);
- // const auto& striphits = iEvent.get(striphitToken_);
+  // const auto& striphits = iEvent.get(striphitToken_);
   const auto& seeds = iEvent.get(seedToken_);
   // This producer does not strictly speaking need the MkFitGeometry,
   // but the ESProducer sets global variables (yes, that "feature"

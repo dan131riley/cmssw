@@ -26,10 +26,10 @@ public:
 
   class GlobalDeviceView {
   public:
-//    __device__ __forceinline__ float local_xx(int i) const { return __ldg(local_xx_ + i); }
-//    __device__ __forceinline__ float local_xy(int i) const { return __ldg(local_xy_ + i); }
-//    __device__ __forceinline__ float local_yy(int i) const { return __ldg(local_yy_ + i); }
-//    __device__ __forceinline__ float local(int i) const { return __ldg(local_ + i); }
+    //    __device__ __forceinline__ float local_xx(int i) const { return __ldg(local_xx_ + i); }
+    //    __device__ __forceinline__ float local_xy(int i) const { return __ldg(local_xy_ + i); }
+    //    __device__ __forceinline__ float local_yy(int i) const { return __ldg(local_yy_ + i); }
+    //    __device__ __forceinline__ float local(int i) const { return __ldg(local_ + i); }
     __device__ __forceinline__ float global_x(int i) const { return __ldg(global_x_ + i); }
     __device__ __forceinline__ float global_y(int i) const { return __ldg(global_y_ + i); }
     __device__ __forceinline__ float global_z(int i) const { return __ldg(global_z_ + i); }
@@ -43,21 +43,21 @@ public:
 
     __device__ __forceinline__ short layer(int i) const { return __ldg(layer_ + i); }
     __device__ __forceinline__ float barycenter(int i) const { return __ldg(barycenter_ + i); }  // to remove Tres
-//    __device__ __forceinline__ stripgpu::detId_t clusterDetId(int i) const { return __ldg(clusterDetId_ + i); }
-//    __device__ __forceinline__ uint32_t clusterIndex(int i) const { return __ldg(clusterIndex_ + i); }
-//    __device__ __forceinline__ uint8_t clusterADCs(int i) const { return __ldg(clusterADCs_ + i); }
-//    __device__ __forceinline__ stripgpu::stripId_t firstStrip(int i) const { return __ldg(firstStrip_ + i); }
-//__device__ __forceinline__ uint32_t clusterSize(int i) const { return __ldg(clusterSize_ + i); }
+    //    __device__ __forceinline__ stripgpu::detId_t clusterDetId(int i) const { return __ldg(clusterDetId_ + i); }
+    //    __device__ __forceinline__ uint32_t clusterIndex(int i) const { return __ldg(clusterIndex_ + i); }
+    //    __device__ __forceinline__ uint8_t clusterADCs(int i) const { return __ldg(clusterADCs_ + i); }
+    //    __device__ __forceinline__ stripgpu::stripId_t firstStrip(int i) const { return __ldg(firstStrip_ + i); }
+    //__device__ __forceinline__ uint32_t clusterSize(int i) const { return __ldg(clusterSize_ + i); }
 
     friend MkFitSiStripClustersCUDA;
 
     //   private:
     int nClusters_;
 
-//    float *local_xx_;
-//    float *local_xy_;
-//    float *local_yy_;
-//    float *local_;
+    //    float *local_xx_;
+    //    float *local_xy_;
+    //    float *local_yy_;
+    //    float *local_;
     float *global_x_;
     float *global_y_;
     float *global_z_;
@@ -72,10 +72,10 @@ public:
     short *layer_;
     float *barycenter_;  // to remove Tres
     stripgpu::detId_t *clusterDetId_;
-//    uint32_t *clusterIndex_;
-//uint8_t *clusterADCs_;
-//stripgpu::stripId_t *firstStrip_;
-//uint32_t *clusterSize_;
+    //    uint32_t *clusterIndex_;
+    //uint8_t *clusterADCs_;
+    //stripgpu::stripId_t *firstStrip_;
+    //uint32_t *clusterSize_;
   };
 
   GlobalDeviceView *gview() const { return gview_d.get(); }
@@ -85,16 +85,16 @@ public:
     explicit HostView(size_t maxClusters, int clustersPerStrip, cudaStream_t stream);
 
     cms::cuda::host::unique_ptr<stripgpu::detId_t[]> clusterDetId_h;
-//    cms::cuda::host::unique_ptr<uint32_t[]> clusterIndex_h;
+    //    cms::cuda::host::unique_ptr<uint32_t[]> clusterIndex_h;
     cms::cuda::host::unique_ptr<float[]> barycenter_h;
-//cms::cuda::host::unique_ptr<uint8_t[]> clusterADCs_h;
-//cms::cuda::host::unique_ptr<uint32_t[]> clusterSize_h;
-//cms::cuda::host::unique_ptr<stripgpu::stripId_t[]> firstStrip_h;
+    //cms::cuda::host::unique_ptr<uint8_t[]> clusterADCs_h;
+    //cms::cuda::host::unique_ptr<uint32_t[]> clusterSize_h;
+    //cms::cuda::host::unique_ptr<stripgpu::stripId_t[]> firstStrip_h;
 
-//    cms::cuda::host::unique_ptr<float[]> local_xx_h;
-//    cms::cuda::host::unique_ptr<float[]> local_xy_h;
-//    cms::cuda::host::unique_ptr<float[]> local_yy_h;
-//    cms::cuda::host::unique_ptr<float[]> local_h;
+    //    cms::cuda::host::unique_ptr<float[]> local_xx_h;
+    //    cms::cuda::host::unique_ptr<float[]> local_xy_h;
+    //    cms::cuda::host::unique_ptr<float[]> local_yy_h;
+    //    cms::cuda::host::unique_ptr<float[]> local_h;
     cms::cuda::host::unique_ptr<float[]> global_x_h;
     cms::cuda::host::unique_ptr<float[]> global_y_h;
     cms::cuda::host::unique_ptr<float[]> global_z_h;
@@ -113,16 +113,16 @@ public:
 
 private:
   cms::cuda::device::unique_ptr<stripgpu::detId_t[]> clusterDetId_d;
-//  cms::cuda::device::unique_ptr<uint32_t[]> clusterIndex_d;
+  //  cms::cuda::device::unique_ptr<uint32_t[]> clusterIndex_d;
   cms::cuda::device::unique_ptr<float[]> barycenter_d;
-//cms::cuda::device::unique_ptr<uint8_t[]> clusterADCs_d;
-//  cms::cuda::device::unique_ptr<uint32_t[]> clusterSize_d;
-// cms::cuda::device::unique_ptr<stripgpu::stripId_t[]> firstStrip_d;
+  //cms::cuda::device::unique_ptr<uint8_t[]> clusterADCs_d;
+  //  cms::cuda::device::unique_ptr<uint32_t[]> clusterSize_d;
+  // cms::cuda::device::unique_ptr<stripgpu::stripId_t[]> firstStrip_d;
 
-//  cms::cuda::device::unique_ptr<float[]> local_xx_d;
-//  cms::cuda::device::unique_ptr<float[]> local_xy_d;
-//  cms::cuda::device::unique_ptr<float[]> local_yy_d;
-//  cms::cuda::device::unique_ptr<float[]> local_d;
+  //  cms::cuda::device::unique_ptr<float[]> local_xx_d;
+  //  cms::cuda::device::unique_ptr<float[]> local_xy_d;
+  //  cms::cuda::device::unique_ptr<float[]> local_yy_d;
+  //  cms::cuda::device::unique_ptr<float[]> local_d;
   cms::cuda::device::unique_ptr<float[]> global_x_d;
   cms::cuda::device::unique_ptr<float[]> global_y_d;
   cms::cuda::device::unique_ptr<float[]> global_z_d;

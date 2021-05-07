@@ -1,8 +1,17 @@
 #ifndef _LOCAL_TO_GLOBAL_GPU_KERNEL_
 #define _LOCAL_TO_GLOBAL_GPU_KERNEL_
 
+#include "HeterogeneousCore/CUDAUtilities/interface/cudaCompat.h"
+
 static constexpr int DETS_barrel = 7932;
 static constexpr int DETS_endcap = 7216;
+
+namespace stripgpu {
+  __host__ __device__ int index_lookup3(const unsigned int detid);
+  __host__ __device__ int index_lookup4(const unsigned int detid);
+  __host__ __device__ int index_lookup5(const unsigned int detid);
+  __host__ __device__ int index_lookup6(const unsigned int detid);
+}
 
 struct LocalToGlobalMap {
   short indexer3[31214];

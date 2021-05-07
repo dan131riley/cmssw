@@ -79,11 +79,11 @@ void MkFitSeedConverter::produce(edm::StreamID iID, edm::Event& iEvent, const ed
                               iEvent.get(pixelhitToken_).hitIndexMap(),
                               iSetup.getData(ttrhBuilderToken_),
                               iSetup.getData(mfToken_)));
- // iEvent.emplace(putToken_,
- //                convertSeeds(iEvent.get(seedToken_),
- //                             iEvent.get(striphitToken_).hitIndexMap(),
- //                             iSetup.getData(ttrhBuilderToken_),
- //                             iSetup.getData(mfToken_)));
+  // iEvent.emplace(putToken_,
+  //                convertSeeds(iEvent.get(seedToken_),
+  //                             iEvent.get(striphitToken_).hitIndexMap(),
+  //                             iSetup.getData(ttrhBuilderToken_),
+  //                             iSetup.getData(mfToken_)));
 }
 
 mkfit::TrackVec MkFitSeedConverter::convertSeeds(const edm::View<TrajectorySeed>& seeds,
