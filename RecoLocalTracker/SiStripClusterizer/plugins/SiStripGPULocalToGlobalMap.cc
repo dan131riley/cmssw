@@ -1,20 +1,13 @@
-#include "HeterogeneousCore/CUDAUtilities/interface/allocate_device.h"
-#include "HeterogeneousCore/CUDAUtilities/interface/allocate_host.h"
-
-#include "Geometry/TrackerNumberingBuilder/interface/GeometricDet.h"
-#include "Geometry/CommonTopologies/interface/GeomDet.h"
-#include "HeterogeneousCore/CUDAUtilities/interface/device_unique_ptr.h"
-#include "CUDADataFormats/SiStripCluster/interface/MkFitSiStripClustersCUDA.h"
-#include "CUDADataFormats/SiStripCluster/interface/SiStripClustersCUDA.h"
-
-#include "CondFormats/SiStripObjects/interface/SiStripBackPlaneCorrection.h"
 #include "CalibTracker/Records/interface/SiStripDependentRecords.h"
+#include "CondFormats/SiStripObjects/interface/SiStripBackPlaneCorrection.h"
 #include "CondFormats/SiStripObjects/interface/SiStripLorentzAngle.h"
+#include "DataFormats/GeometrySurface/interface/TrapezoidalPlaneBounds.h"
 #include "MagneticField/Engine/interface/MagneticField.h"
 #include "MagneticField/Records/interface/IdealMagneticFieldRecord.h"
-#include "Geometry/TrackerGeometryBuilder/interface/TrackerGeometry.h"
+#include "Geometry/CommonTopologies/interface/GeomDet.h"
 #include "Geometry/TrackerGeometryBuilder/interface/StripGeomDetUnit.h"
-#include "DataFormats/GeometrySurface/interface/TrapezoidalPlaneBounds.h"
+#include "Geometry/TrackerGeometryBuilder/interface/TrackerGeometry.h"
+#include "Geometry/TrackerNumberingBuilder/interface/GeometricDet.h"
 
 #include "SiStripGPULocalToGlobalMap.h"
 #include "localToGlobal.cuh"
@@ -60,6 +53,10 @@ SiStripGPULocalToGlobalMap::SiStripGPULocalToGlobalMap(const GeometricDet& GeomD
   //sort the tracker geometry into barrel and endcap vectors
   std::vector<const GeometricDet*> dets_barrel;
   std::vector<const GeometricDet*> dets_endcap;
+
+  dets_barrel.reserve(DETS_barrel);
+  dets_endcap.reserve(DETS_endcap);
+
   for (auto& it : GeomDet2.deepComponents()) {
     DetId det = it->geographicalId();
 
@@ -72,18 +69,23 @@ SiStripGPULocalToGlobalMap::SiStripGPULocalToGlobalMap(const GeometricDet& GeomD
   }
 
   //sort and erase duplicates.
-  dets_barrel.erase(unique(dets_barrel.begin(), dets_barrel.end()), dets_barrel.end());
-  dets_endcap.erase(unique(dets_endcap.begin(), dets_endcap.end()), dets_endcap.end());
-  sort(dets_barrel.begin(), dets_barrel.end(), [](const GeometricDet* lhs, const GeometricDet* rhs) {
+  auto detcomp = [](const GeometricDet* lhs, const GeometricDet* rhs) {
     DetId detl = lhs->geographicalId();
     DetId detr = rhs->geographicalId();
     return detl.rawId() < detr.rawId();
-  });
-  sort(dets_endcap.begin(), dets_endcap.end(), [](const GeometricDet* lhs, const GeometricDet* rhs) {
+  };
+
+  sort(dets_barrel.begin(), dets_barrel.end(), detcomp);
+  sort(dets_endcap.begin(), dets_endcap.end(), detcomp);
+
+  auto deteq = [](const GeometricDet* lhs, const GeometricDet* rhs) {
     DetId detl = lhs->geographicalId();
     DetId detr = rhs->geographicalId();
-    return detl.rawId() < detr.rawId();
-  });
+    return detl.rawId() == detr.rawId();
+  };
+
+  dets_barrel.erase(unique(dets_barrel.begin(), dets_barrel.end(), deteq), dets_barrel.end());
+  dets_endcap.erase(unique(dets_endcap.begin(), dets_endcap.end(), deteq), dets_endcap.end());
 
   cudaCheck(cudaMallocHost(&localToGlobalMap_, sizeof(LocalToGlobalMap)));
 

@@ -1,6 +1,6 @@
 /**\class SiStripGPULocalToGlobalMapESProducer
  *
- * Create a GPU cache object for fast access to geometry needed by the SiStrip local to global conversion
+ * Create a GPU object for fast access to geometry needed by the SiStrip local to global conversion
  *
  */
 #include <memory>
@@ -15,7 +15,6 @@
 
 #include "CondFormats/SiStripObjects/interface/SiStripBackPlaneCorrection.h"
 #include "CondFormats/SiStripObjects/interface/SiStripLorentzAngle.h"
-#include "DataFormats/TrackerCommon/interface/TrackerTopology.h"
 #include "Geometry/TrackerNumberingBuilder/interface/GeometricDet.h"
 #include "Geometry/TrackerGeometryBuilder/interface/TrackerGeometry.h"
 #include "MagneticField/Engine/interface/MagneticField.h"
@@ -38,7 +37,6 @@ private:
   edm::ESGetToken<SiStripBackPlaneCorrection, SiStripBackPlaneCorrectionDepRcd> m_backplaneToken;
   edm::ESGetToken<SiStripLorentzAngle, SiStripLorentzAngleRcd> m_lorentzAngleToken;
   edm::ESGetToken<TrackerGeometry, TrackerDigiGeometryRecord> m_trackerGeometryToken;
-  edm::ESGetToken<TrackerTopology, TrackerTopologyRcd> m_trackerTopologyToken;
 };
 
 SiStripGPULocalToGlobalMapESProducer::SiStripGPULocalToGlobalMapESProducer(const edm::ParameterSet& iConfig) {
@@ -49,24 +47,24 @@ SiStripGPULocalToGlobalMapESProducer::SiStripGPULocalToGlobalMapESProducer(const
   m_backplaneToken = cc.consumesFrom<SiStripBackPlaneCorrection, SiStripBackPlaneCorrectionDepRcd>();
   m_lorentzAngleToken =
       cc.consumesFrom<SiStripLorentzAngle, SiStripLorentzAngleRcd>(edm::ESInputTag{"", "deconvolution"});
-  m_trackerGeometryToken = cc.consumesFrom<TrackerGeometry, TrackerDigiGeometryRecord>();
-  m_trackerTopologyToken = cc.consumesFrom<TrackerTopology, TrackerTopologyRcd>();
+  m_trackerGeometryToken = cc.consumesFrom<TrackerGeometry, TrackerDigiGeometryRecord>(
+      edm::ESInputTag{"", iConfig.getParameter<std::string>("QualityLabel")});
 }
 
 void SiStripGPULocalToGlobalMapESProducer::fillDescriptions(edm::ConfigurationDescriptions& descriptions) {
   edm::ParameterSetDescription desc;
+  desc.add<std::string>("QualityLabel", "");
+  desc.add<std::string>("Label", "");
   descriptions.add("SiStripGPULocalToGlobalMapESProducer", desc);
 }
 
 SiStripGPULocalToGlobalMapESProducer::ReturnType SiStripGPULocalToGlobalMapESProducer::produce(
     const SiStripGPULocalToGlobalMapRcd& iRecord) {
-  const auto& GeomDet2 = iRecord.get(m_geomDetToken);
-  const auto& magField = iRecord.get(m_magFieldToken);
-  const auto& backPlane = iRecord.get(m_backplaneToken);
-  const auto& lorentz = iRecord.get(m_lorentzAngleToken);
-  const auto& tkGx = iRecord.get(m_trackerGeometryToken);
-
-  return std::make_unique<SiStripGPULocalToGlobalMap>(GeomDet2, magField, backPlane, lorentz, tkGx);
+  return std::make_unique<SiStripGPULocalToGlobalMap>(iRecord.get(m_geomDetToken),
+                                                      iRecord.get(m_magFieldToken),
+                                                      iRecord.get(m_backplaneToken),
+                                                      iRecord.get(m_lorentzAngleToken),
+                                                      iRecord.get(m_trackerGeometryToken));
 }
 
 DEFINE_FWK_EVENTSETUP_MODULE(SiStripGPULocalToGlobalMapESProducer);

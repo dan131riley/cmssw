@@ -19,26 +19,15 @@
 
 #include <memory>
 
-#include "Geometry/TrackerNumberingBuilder/interface/GeometricDet.h"
 #include "DataFormats/TrackerCommon/interface/TrackerTopology.h"
 #include "Geometry/Records/interface/TrackerTopologyRcd.h"
 #include "DataFormats/TrackerCommon/interface/TrackerDetSide.h"
-#include "Geometry/TrackerGeometryBuilder/interface/TrackerGeometry.h"
-#include "Geometry/Records/interface/TrackerDigiGeometryRecord.h"
-#include "Geometry/TrackerGeometryBuilder/interface/StripGeomDetUnit.h"
 #include "Geometry/CommonTopologies/interface/StripTopology.h"
 #include "Math/SVector.h"
 #include "Math/SMatrix.h"
 #include "RecoLocalTracker/SiStripClusterizer/interface/MkFitStripInputWrapper.h"
 #include "Hit.h"
 #include "LayerNumberConverter.h"
-#include "CondFormats/SiStripObjects/interface/SiStripBackPlaneCorrection.h"
-#include "CalibTracker/Records/interface/SiStripDependentRecords.h"
-#include "CondFormats/SiStripObjects/interface/SiStripLorentzAngle.h"
-#include "CondFormats/DataRecord/interface/SiStripLorentzAngleRcd.h"
-#include "MagneticField/Engine/interface/MagneticField.h"
-#include "MagneticField/Records/interface/IdealMagneticFieldRecord.h"
-#include "Geometry/TrackerGeometryBuilder/interface/StripGeomDetUnit.h"
 
 #include "RecoLocalTracker/SiStripClusterizer/plugins/MkFitSiStripHitGPUKernel.h"
 #include "RecoLocalTracker/SiStripClusterizer/interface/MkFitRecHitWrapper.h"
@@ -163,8 +152,6 @@ private:
 
   edm::ESGetToken<SiStripGPULocalToGlobalMap, SiStripGPULocalToGlobalMapRcd> geometryToken_;
   edm::ESGetToken<TrackerTopology, TrackerTopologyRcd> topologyToken_;
-
-  const TrackerGeometry* tkG;
 };
 
 void MkFitSiStripHitsFromSOA::fillDescriptions(edm::ConfigurationDescriptions& descriptions) {
@@ -173,6 +160,7 @@ void MkFitSiStripHitsFromSOA::fillDescriptions(edm::ConfigurationDescriptions& d
   desc.add("siClusters", edm::InputTag{"SiStripClustersFromRawFacility"});
   desc.add("stripRphiRecHits", edm::InputTag{"siStripMatchedRecHits", "rphiRecHit"});
   desc.add("stripStereoRecHits", edm::InputTag{"siStripMatchedRecHits", "stereoRecHit"});
+  desc.add<std::string>("ConditionsLabel", "");
   descriptions.add("mkFitHitsFromSOADefault", desc);
 }
 
