@@ -1,15 +1,12 @@
 /*
  */
-#include "DataFormats/SiStripCluster/interface/SiStripCluster.h"
-#include "DataFormats/Common/interface/DetSetVectorNew.h"
-
-#include "FWCore/Framework/interface/stream/EDProducer.h"
-#include "FWCore/ParameterSet/interface/ParameterSet.h"
-#include "FWCore/Utilities/interface/InputTag.h"
 #include "FWCore/Framework/interface/Event.h"
 #include "FWCore/Framework/interface/EventSetup.h"
-#include "FWCore/Framework/interface/ESHandle.h"
-#include "FWCore/MessageLogger/interface/MessageLogger.h"
+#include "FWCore/Framework/interface/stream/EDProducer.h"
+#include "FWCore/ParameterSet/interface/ParameterSet.h"
+#include "FWCore/ParameterSet/interface/ConfigurationDescriptions.h"
+#include "FWCore/ParameterSet/interface/ParameterSetDescription.h"
+#include "FWCore/Utilities/interface/InputTag.h"
 
 #include "HeterogeneousCore/CUDACore/interface/ScopedContext.h"
 #include "HeterogeneousCore/CUDAServices/interface/CUDAService.h"
@@ -17,29 +14,24 @@
 #include "CUDADataFormats/SiStripCluster/interface/MkFitSiStripClustersCUDA.h"
 #include "CUDADataFormats/SiStripCluster/interface/SiStripClustersCUDA.h"
 
-#include <memory>
-
 #include "DataFormats/TrackerCommon/interface/TrackerTopology.h"
-#include "Geometry/Records/interface/TrackerTopologyRcd.h"
 #include "DataFormats/TrackerCommon/interface/TrackerDetSide.h"
-#include "Geometry/CommonTopologies/interface/StripTopology.h"
-#include "Math/SVector.h"
-#include "Math/SMatrix.h"
-#include "RecoLocalTracker/SiStripClusterizer/interface/MkFitStripInputWrapper.h"
-#include "Hit.h"
-#include "LayerNumberConverter.h"
-
-#include "RecoLocalTracker/SiStripClusterizer/plugins/MkFitSiStripHitGPUKernel.h"
-#include "RecoLocalTracker/SiStripClusterizer/interface/MkFitRecHitWrapper.h"
-#include "RecoTracker/MkFit/interface/MkFitHitWrapper.h"
-#include "FWCore/ParameterSet/interface/ConfigurationDescriptions.h"
-#include "FWCore/ParameterSet/interface/ParameterSetDescription.h"
-#include "DataFormats/TrackerRecHit2D/interface/SiStripRecHit2D.h"
-#include "DataFormats/TrackerRecHit2D/interface/OmniClusterRef.h"
-#include "DataFormats/TrackerRecHit2D/interface/SiStripRecHit2DCollection.h"
-#include "DataFormats/TrackerRecHit2D/interface/SiPixelRecHitCollection.h"
+#include "Geometry/Records/interface/TrackerTopologyRcd.h"
 #include "RecoLocalTracker/Records/interface/SiStripGPULocalToGlobalMapRcd.h"
 #include "SiStripGPULocalToGlobalMap.h"
+
+#include "RecoLocalTracker/SiStripClusterizer/interface/MkFitStripInputWrapper.h"
+#include "RecoLocalTracker/SiStripClusterizer/interface/MkFitRecHitWrapper.h"
+#include "RecoTracker/MkFit/interface/MkFitHitWrapper.h"
+#include "MkFitSiStripHitGPUKernel.h"
+
+#include <memory>
+
+#include "Math/SVector.h"
+#include "Math/SMatrix.h"
+
+#include "Hit.h"
+#include "LayerNumberConverter.h"
 
 class MkFitSiStripHitsFromSOA final : public edm::stream::EDProducer<edm::ExternalWork> {
 public:
@@ -137,6 +129,11 @@ public:
     mkFitHits.shrink_to_fit();
     set_barycenters.shrink_to_fit();
     set_detIds.shrink_to_fit();
+    for (int j = 0; j < static_cast<int>(lnc.nLayers()); j++) {
+      mkFitHits[j].shrink_to_fit();
+      set_barycenters[j].shrink_to_fit();
+      set_detIds[j].shrink_to_fit();
+    }
 
     ev.emplace(outputToken_, std::move(mkFitHits), totalHits, std::move(set_barycenters), std::move(set_detIds));
   }

@@ -1,11 +1,8 @@
-#include "CalibTracker/Records/interface/SiStripDependentRecords.h"
 #include "CondFormats/SiStripObjects/interface/SiStripBackPlaneCorrection.h"
 #include "CondFormats/SiStripObjects/interface/SiStripLorentzAngle.h"
 #include "DataFormats/GeometrySurface/interface/TrapezoidalPlaneBounds.h"
 #include "MagneticField/Engine/interface/MagneticField.h"
-#include "MagneticField/Records/interface/IdealMagneticFieldRecord.h"
 #include "Geometry/CommonTopologies/interface/GeomDet.h"
-#include "Geometry/TrackerGeometryBuilder/interface/StripGeomDetUnit.h"
 #include "Geometry/TrackerGeometryBuilder/interface/TrackerGeometry.h"
 #include "Geometry/TrackerNumberingBuilder/interface/GeometricDet.h"
 
