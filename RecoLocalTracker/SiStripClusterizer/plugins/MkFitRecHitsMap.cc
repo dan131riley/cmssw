@@ -57,21 +57,19 @@ public:
     auto mkFitHits = ev.get(pixelhitToken_).hits();
 
     detSetMap_.clear();
-    layerExpanded_.clear();
 
     fillDetSetMap(ev.get(stripRphiRecHitToken_));
     fillDetSetMap(ev.get(stripStereoRecHitToken_));
 
     for (int ilay = 0; ilay < static_cast<int>(strip_mkFitHits.size()); ilay++) {
       int index = 0;
+      hitIndexMap.increaseLayerSize(ilay, strip_mkFitHits[ilay].size());
       for (int i = 0; i < static_cast<int>(strip_mkFitHits[ilay].size()); i++) {
         const auto detid = detIds[ilay][i];
         const auto firstStrip = firstStrips[ilay][i];
         if (fillMap(detid, firstStrip, index, ilay, hitIndexMap)) {
           mkFitHits[ilay].push_back(strip_mkFitHits[ilay][i]);
           ++index;
-        } else {
-          std::cout << "Missed strip detid " << detid << " strip " << firstStrip << std::endl;
         }
       }
     }
@@ -81,7 +79,6 @@ public:
 private:
   using HitCollection = SiStripRecHit2DCollection::value_type;
 
-  std::set<unsigned int> layerExpanded_;
   std::unordered_map<DetId, const HitCollection> detSetMap_;
 
   edm::EDPutTokenT<MkFitHitWrapper> outputToken_;
@@ -104,9 +101,6 @@ bool MkFitSiStripRecHitsMap::fillMap(
   const auto detiter = detSetMap_.find(detid);
   if (detiter != detSetMap_.end()) {
     const auto& detset{detiter->second};
-    if (layerExpanded_.insert(detid).second) {
-      hitIndexMapx.increaseLayerSize(ilay, detset.size());
-    }
     for (const auto& hit : detset) {
       if (firstStrip == hit.cluster()->firstStrip()) {
         hitIndexMapx.insert(
