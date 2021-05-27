@@ -9,6 +9,7 @@ SiStripClustersCUDA::SiStripClustersCUDA(size_t maxClusters, int clustersPerStri
   firstStrip_d = cms::cuda::make_device_unique<stripgpu::stripId_t[]>(maxClusters, stream);
   trueCluster_d = cms::cuda::make_device_unique<bool[]>(maxClusters, stream);
   barycenter_d = cms::cuda::make_device_unique<float[]>(maxClusters, stream);
+  charge_d = cms::cuda::make_device_unique<float[]>(maxClusters, stream);
 
   auto view = cms::cuda::make_host_unique<DeviceView>(stream);
   view->clusterIndex_ = clusterIndex_d.get();
@@ -18,6 +19,7 @@ SiStripClustersCUDA::SiStripClustersCUDA(size_t maxClusters, int clustersPerStri
   view->firstStrip_ = firstStrip_d.get();
   view->trueCluster_ = trueCluster_d.get();
   view->barycenter_ = barycenter_d.get();
+  view->charge_ = charge_d.get();
 
   view_d = cms::cuda::make_device_unique<DeviceView>(stream);
   cms::cuda::copyAsync(view_d, view, stream);
@@ -31,6 +33,7 @@ SiStripClustersCUDA::HostView::HostView(size_t maxClusters, int clustersPerStrip
   firstStrip_h = cms::cuda::make_host_unique<stripgpu::stripId_t[]>(maxClusters, stream);
   trueCluster_h = cms::cuda::make_host_unique<bool[]>(maxClusters, stream);
   barycenter_h = cms::cuda::make_host_unique<float[]>(maxClusters, stream);
+  charge_h = cms::cuda::make_host_unique<float[]>(maxClusters, stream);
   nClusters_h = maxClusters;
 }
 
@@ -45,6 +48,7 @@ std::unique_ptr<SiStripClustersCUDA::HostView> SiStripClustersCUDA::hostView(int
   cms::cuda::copyAsync(view_h->firstStrip_h, firstStrip_d, nClusters_h, stream);
   cms::cuda::copyAsync(view_h->trueCluster_h, trueCluster_d, nClusters_h, stream);
   cms::cuda::copyAsync(view_h->barycenter_h, barycenter_d, nClusters_h, stream);
+  cms::cuda::copyAsync(view_h->charge_h, charge_d, nClusters_h, stream);
 
   return view_h;
 }

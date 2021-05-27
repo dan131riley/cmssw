@@ -73,6 +73,7 @@ namespace stripgpu {
     float ChannelThreshold_, SeedThreshold_, ClusterThresholdSquared_;
     uint8_t MaxSequentialHoles_, MaxSequentialBad_, MaxAdjacentBad_;
     float minGoodCharge_;
+    bool keepLargeClusters_;
   };
 }  // namespace stripgpu
 #endif

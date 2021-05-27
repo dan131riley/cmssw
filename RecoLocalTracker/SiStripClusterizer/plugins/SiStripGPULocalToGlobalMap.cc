@@ -22,12 +22,12 @@ SiStripGPULocalToGlobalMap::SiStripGPULocalToGlobalMap(const GeometricDet& GeomD
   stripunit_v stripUnit;
   stripUnit.reserve(tkG.detUnits().size());
 
-  for (auto&& dus : tkG.detUnits()) {
-    auto&& rot_num = dus->geographicalId().rawId();
-    auto&& magField = (dus->surface()).toLocal(MagFieldMap.inTesla(dus->surface().position()));
+  for (const auto& dus : tkG.detUnits()) {
+    const auto& rot_num = dus->geographicalId().rawId();
+    const auto& magField = (dus->surface()).toLocal(MagFieldMap.inTesla(dus->surface().position()));
 
-    Surface::RotationType rot = dus->surface().rotation();
-    Surface::PositionType pos = dus->surface().position();
+    const auto& rot = dus->surface().rotation();
+    const auto& pos = dus->surface().position();
 
     stripUnit.emplace_back(rot_num,
                            magField.x(),
@@ -55,7 +55,7 @@ SiStripGPULocalToGlobalMap::SiStripGPULocalToGlobalMap(const GeometricDet& GeomD
   dets_endcap.reserve(DETS_endcap);
 
   for (auto& it : GeomDet2.deepComponents()) {
-    DetId det = it->geographicalId();
+    const auto& det = it->geographicalId();
 
     int subdet = det.subdetId();
     if (subdet == 3 || subdet == 5) {
@@ -67,8 +67,8 @@ SiStripGPULocalToGlobalMap::SiStripGPULocalToGlobalMap(const GeometricDet& GeomD
 
   //sort and erase duplicates.
   auto detcomp = [](const GeometricDet* lhs, const GeometricDet* rhs) {
-    DetId detl = lhs->geographicalId();
-    DetId detr = rhs->geographicalId();
+    const auto& detl = lhs->geographicalId();
+    const auto& detr = rhs->geographicalId();
     return detl.rawId() < detr.rawId();
   };
 
@@ -76,8 +76,8 @@ SiStripGPULocalToGlobalMap::SiStripGPULocalToGlobalMap(const GeometricDet& GeomD
   sort(dets_endcap.begin(), dets_endcap.end(), detcomp);
 
   auto deteq = [](const GeometricDet* lhs, const GeometricDet* rhs) {
-    DetId detl = lhs->geographicalId();
-    DetId detr = rhs->geographicalId();
+    const auto& detl = lhs->geographicalId();
+    const auto& detr = rhs->geographicalId();
     return detl.rawId() == detr.rawId();
   };
 
@@ -144,7 +144,7 @@ void SiStripGPULocalToGlobalMap::loadBarrel(const std::vector<const GeometricDet
     det_num_h[i] = det->geographicalId().rawId();
 
     int nstrip = int(128 * det->siliconAPVNum());
-    std::unique_ptr<const Bounds> bounds(det->bounds());
+    auto bounds{det->bounds()};
     len_h[i] = bounds->length();
     double width = bounds->width();
     thickness_h[i] = bounds->thickness();
@@ -160,7 +160,7 @@ void SiStripGPULocalToGlobalMap::loadBarrel(const std::vector<const GeometricDet
 
   for (auto it = stripUnit.begin(); it != stripUnit.end(); ++it) {
     int j = std::distance(stripUnit.begin(), it);
-    const auto dus = stripUnit[j];
+    const auto& dus = stripUnit[j];
 
     auto rot_num = std::get<0>(dus);
     int i = -1;
@@ -252,7 +252,7 @@ void SiStripGPULocalToGlobalMap::loadEndcap(const std::vector<const GeometricDet
   }
   for (auto it = stripUnit.begin(); it != stripUnit.end(); ++it) {
     int j = std::distance(stripUnit.begin(), it);
-    const auto dus = stripUnit[j];
+    const auto& dus = stripUnit[j];
 
     auto rot_num = std::get<0>(dus);
     int i = -1;

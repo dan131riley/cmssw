@@ -232,7 +232,7 @@ SiStripRawToSOAClusters = cms.EDProducer("SiStripClusterizerFromRawGPU",
                                                 ProductLabel = cms.InputTag('rawDataCollector'),
                                                 ConditionsLabel = cms.string("")
                                                 )
-SiStripRawToClustersFacility = cms.EDProducer("SiStripClustersFromSOA",
+siStripClusters = cms.EDProducer("SiStripClustersFromSOA",
     ProductLabel = cms.InputTag("SiStripRawToSOAClusters")
 )
 

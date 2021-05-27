@@ -24,7 +24,8 @@ struct sst_data_t {
   int nStrips;
   float ChannelThreshold_, SeedThreshold_, ClusterThresholdSquared_;
   uint8_t MaxSequentialHoles_, MaxSequentialBad_, MaxAdjacentBad_;
-  bool RemoveApvShots_;
   float minGoodCharge_;
+  int clusterSizeLimit_;
+  bool RemoveApvShots_;
 };
 #endif

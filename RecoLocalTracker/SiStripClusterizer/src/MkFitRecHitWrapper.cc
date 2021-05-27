@@ -5,11 +5,11 @@
 
 MkFitRecHitWrapper::MkFitRecHitWrapper() = default;
 
-MkFitRecHitWrapper::MkFitRecHitWrapper(std::vector<mkfit::HitVec> hits,
-                                       int totalHits,
-                                       std::vector<std::vector<float>> barycenters,
-                                       std::vector<std::vector<int>> detIds)
-    : hits_{std::move(hits)}, totalHits_{totalHits}, barycenters_{std::move(barycenters)}, detIds_{std::move(detIds)} {}
+MkFitRecHitWrapper::MkFitRecHitWrapper(int totalHits,
+                                       std::vector<mkfit::HitVec> hits,
+                                       std::vector<std::vector<stripgpu::stripId_t>> firstStrips,
+                                       std::vector<std::vector<stripgpu::detId_t>> detIds)
+    : totalHits_{totalHits}, hits_{hits}, firstStrips_{firstStrips}, detIds_{detIds} {}
 
 MkFitRecHitWrapper::~MkFitRecHitWrapper() = default;
 

@@ -18,7 +18,8 @@ namespace stripgpu {
         MaxSequentialHoles_(conf.getParameter<unsigned>("MaxSequentialHoles")),
         MaxSequentialBad_(conf.getParameter<unsigned>("MaxSequentialBad")),
         MaxAdjacentBad_(conf.getParameter<unsigned>("MaxAdjacentBad")),
-        minGoodCharge_(clusterChargeCut(conf)) {
+        minGoodCharge_(clusterChargeCut(conf)),
+        keepLargeClusters_(conf.getParameter<bool>("KeepLargeClusters")) {
     fedRawDataOffsets_.reserve(stripgpu::kFedCount);
   }
 

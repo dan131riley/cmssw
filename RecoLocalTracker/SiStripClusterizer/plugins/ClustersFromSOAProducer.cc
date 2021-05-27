@@ -82,8 +82,8 @@ public:
       out_t::FastFiller record(*output, detid);
 
       while (i < nSeedStripsNC && detIDs[i] == detid) {
-        if (trueCluster[i]) {
-          const auto size = std::min(clusterSize[i], SiStripClustersCUDA::kClusterMaxStrips);
+        const auto size = clusterSize[i];
+        if (trueCluster[i] && clusterSize[i] <= SiStripClustersCUDA::kClusterMaxStrips) {
           const auto firstStrip = stripIDs[i];
 
           adcs.clear();

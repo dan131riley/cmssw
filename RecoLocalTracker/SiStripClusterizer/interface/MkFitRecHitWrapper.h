@@ -2,6 +2,7 @@
 #define RecoTracker_MkFit_MkFitRecHitWrapper_h
 
 #include "RecoTracker/MkFit/interface/MkFitHitIndexMap.h"
+#include "CUDADataFormats/SiStripCluster/interface/GPUtypes.h"
 
 #include <vector>
 
@@ -14,10 +15,10 @@ namespace mkfit {
 class MkFitRecHitWrapper {
 public:
   MkFitRecHitWrapper();
-  MkFitRecHitWrapper(std::vector<mkfit::HitVec> hits,
-                     int totalHits,
-                     std::vector<std::vector<float>> barycenters,
-                     std::vector<std::vector<int>> detIds);
+  MkFitRecHitWrapper(int totalHits,
+                     std::vector<mkfit::HitVec> hits,
+                     std::vector<std::vector<stripgpu::stripId_t>> firstStrips,
+                     std::vector<std::vector<stripgpu::detId_t>> detIds);
   ~MkFitRecHitWrapper();
 
   MkFitRecHitWrapper(MkFitRecHitWrapper const&) = delete;
@@ -26,15 +27,15 @@ public:
   MkFitRecHitWrapper& operator=(MkFitRecHitWrapper&&);
 
   std::vector<mkfit::HitVec> const& hits() const { return hits_; }
-  int const& totalHits() const { return totalHits_; }
-  std::vector<std::vector<float>> const& barycenters() const { return barycenters_; }
-  std::vector<std::vector<int>> const& detIds() const { return detIds_; }
+  int totalHits() const { return totalHits_; }
+  std::vector<std::vector<stripgpu::stripId_t>> const& firstStrips() const { return firstStrips_; }
+  std::vector<std::vector<stripgpu::detId_t>> const& detIds() const { return detIds_; }
 
 private:
-  std::vector<mkfit::HitVec> hits_;
   int totalHits_;
-  std::vector<std::vector<float>> barycenters_;
-  std::vector<std::vector<int>> detIds_;
+  std::vector<mkfit::HitVec> hits_;
+  std::vector<std::vector<stripgpu::stripId_t>> firstStrips_;
+  std::vector<std::vector<stripgpu::detId_t>> detIds_;
 };
 
 #endif

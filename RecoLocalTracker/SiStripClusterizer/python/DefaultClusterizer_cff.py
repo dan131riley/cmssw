@@ -13,5 +13,6 @@ DefaultClusterizer = cms.PSet(
     MaxAdjacentBad = cms.uint32(0),
     RemoveApvShots     = cms.bool(True),
     clusterChargeCut = cms.PSet(refToPSet_ = cms.string('SiStripClusterChargeCutNone')),
-    ConditionsLabel = cms.string("")
+    ConditionsLabel = cms.string(""),
+    KeepLargeClusters = cms.bool(False)
     )

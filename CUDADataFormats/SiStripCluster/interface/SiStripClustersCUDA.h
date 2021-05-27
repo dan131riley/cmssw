@@ -35,6 +35,7 @@ public:
     __device__ __forceinline__ stripgpu::stripId_t firstStrip(int i) const { return __ldg(firstStrip_ + i); }
     __device__ __forceinline__ bool trueCluster(int i) const { return trueCluster_[i]; }
     __device__ __forceinline__ float barycenter(int i) const { return __ldg(barycenter_ + i); }
+    __device__ __forceinline__ float charge(int i) const { return __ldg(charge_ + i); }
 
     friend SiStripClustersCUDA;
 
@@ -46,6 +47,7 @@ public:
     stripgpu::stripId_t *firstStrip_;
     bool *trueCluster_;
     float *barycenter_;
+    float *charge_;
     int nClusters_;
   };
 
@@ -62,6 +64,7 @@ public:
     cms::cuda::host::unique_ptr<stripgpu::stripId_t[]> firstStrip_h;
     cms::cuda::host::unique_ptr<bool[]> trueCluster_h;
     cms::cuda::host::unique_ptr<float[]> barycenter_h;
+    cms::cuda::host::unique_ptr<float[]> charge_h;
     int nClusters_h;
   };
 
@@ -75,6 +78,7 @@ private:
   cms::cuda::device::unique_ptr<stripgpu::stripId_t[]> firstStrip_d;
   cms::cuda::device::unique_ptr<bool[]> trueCluster_d;
   cms::cuda::device::unique_ptr<float[]> barycenter_d;
+  cms::cuda::device::unique_ptr<float[]> charge_d;
 
   cms::cuda::device::unique_ptr<DeviceView> view_d;  // "me" pointer
 

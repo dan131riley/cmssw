@@ -22,13 +22,11 @@ public:
     m_backplaneToken = cc.consumesFrom<SiStripBackPlaneCorrection, SiStripBackPlaneCorrectionDepRcd>();
     m_lorentzAngleToken =
         cc.consumesFrom<SiStripLorentzAngle, SiStripLorentzAngleRcd>(edm::ESInputTag{"", "deconvolution"});
-    m_trackerGeometryToken = cc.consumesFrom<TrackerGeometry, TrackerDigiGeometryRecord>(
-        edm::ESInputTag{"", iConfig.getParameter<std::string>("QualityLabel")});
+    m_trackerGeometryToken = cc.consumesFrom<TrackerGeometry, TrackerDigiGeometryRecord>();
   }
 
   static void fillDescriptions(edm::ConfigurationDescriptions& descriptions) {
     edm::ParameterSetDescription desc;
-    desc.add<std::string>("QualityLabel", "");
     desc.add<std::string>("Label", "");
     descriptions.add("SiStripGPULocalToGlobalMapESProducer", desc);
   }

@@ -16,9 +16,13 @@
 
 #include "DataFormats/TrackerCommon/interface/TrackerTopology.h"
 #include "DataFormats/TrackerCommon/interface/TrackerDetSide.h"
+#include "DataFormats/SiStripCluster/interface/SiStripClusterTools.h"
 #include "Geometry/Records/interface/TrackerTopologyRcd.h"
 #include "RecoLocalTracker/Records/interface/SiStripGPULocalToGlobalMapRcd.h"
 #include "SiStripGPULocalToGlobalMap.h"
+
+#include "RecoTracker/MkFit/interface/MkFitGeometry.h"
+#include "RecoTracker/Record/interface/TrackerRecoGeometryRecord.h"
 
 #include "RecoLocalTracker/SiStripClusterizer/interface/MkFitStripInputWrapper.h"
 #include "RecoLocalTracker/SiStripClusterizer/interface/MkFitRecHitWrapper.h"
@@ -42,8 +46,12 @@ public:
     geometryToken_ = esConsumes<SiStripGPULocalToGlobalMap, SiStripGPULocalToGlobalMapRcd>(
         edm::ESInputTag{"", conf.getParameter<std::string>("ConditionsLabel")});
     topologyToken_ = esConsumes<TrackerTopology, TrackerTopologyRcd>();
+    mkFitGeomToken_ = esConsumes<MkFitGeometry, TrackerRecoGeometryRecord>();
 
     outputToken_ = produces<MkFitRecHitWrapper>();
+
+    minGoodStripCharge_ =
+        static_cast<float>(conf.getParameter<edm::ParameterSet>("minGoodStripCharge").getParameter<double>("value"));
   }
 
   static void fillDescriptions(edm::ConfigurationDescriptions& descriptions);
@@ -70,6 +78,7 @@ public:
   }
 
   void produce(edm::Event& ev, const edm::EventSetup& es) override {
+    const auto& mkFitGeom = es.getData(mkFitGeomToken_);
     int totalHits = ev.get(pixelhitToken_).totalHits();
 
     mkfit::LayerNumberConverter lnc{mkfit::TkLayout::phase1};
@@ -87,25 +96,26 @@ public:
     const auto global_zz = clust_data->global_zz_h.get();
     const auto layer = clust_data->layer_h.get();
     const auto detid = clust_data->clusterDetId_h.get();
-    const auto barycenter = clust_data->barycenter_h.get();
+    const auto firstStrip = clust_data->firstStrip_h.get();
+    const auto clusterSize = clust_data->clusterSize_h.get();
+    const auto charge = clust_data->charge_h.get();
 
-    std::vector<std::vector<float>> set_barycenters(lnc.nLayers());
-    std::vector<std::vector<int>> set_detIds(lnc.nLayers());
+    std::vector<std::vector<stripgpu::stripId_t>> set_stripids(lnc.nLayers());
+    std::vector<std::vector<stripgpu::detId_t>> set_detIds(lnc.nLayers());
     std::vector<mkfit::HitVec> mkFitHits(lnc.nLayers());
 
     for (int j = 0; j < static_cast<int>(lnc.nLayers()); j++) {
       mkFitHits[j].reserve(5000);
-      set_barycenters[j].reserve(5000);
+      set_stripids[j].reserve(5000);
       set_detIds[j].reserve(5000);
     }
 
     const auto& ttopo = es.getData(topologyToken_);
     using SVector3 = ROOT::Math::SVector<float, 3>;
     using SMatrixSym33 = ROOT::Math::SMatrix<float, 3, 3, ROOT::Math::MatRepSym<float, 3>>;
-    std::vector<uint8_t> adcs;
-    adcs.reserve(SiStripClustersCUDA::kClusterMaxStrips);
     for (int i = 0; i < nSeedStripsNC; ++i) {
-      if (layer[i] == -1) {
+      auto chargePerCm = charge[i] * siStripClusterTools::sensorThicknessInverse(detid[i]);
+      if (layer[i] == -1 || chargePerCm < minGoodStripCharge_) {
         continue;
       }  // layer number doubles as "bad hit" index
       SVector3 pos(global_x[i], global_y[i], global_z[i]);
@@ -121,21 +131,21 @@ public:
       bool plusraw = (ttopo.side(detid[i]) == static_cast<unsigned>(TrackerDetSide::PosEndcap));
       const auto ilay = lnc.convertLayerNumber(subdet, layer[i], false, stereoraw, plusraw);
       mkFitHits[ilay].emplace_back(pos, err, totalHits);
-      set_barycenters[ilay].emplace_back(barycenter[i]);
+      const auto uniqueIdInLayer = mkFitGeom.uniqueIdInLayer(ilay, detid[i]);
+      mkFitHits[ilay].back().setupAsStrip(uniqueIdInLayer, charge[i], clusterSize[i]);
+      set_stripids[ilay].emplace_back(firstStrip[i]);
       set_detIds[ilay].emplace_back(detid[i]);
+
       ++totalHits;
     }
 
-    mkFitHits.shrink_to_fit();
-    set_barycenters.shrink_to_fit();
-    set_detIds.shrink_to_fit();
     for (int j = 0; j < static_cast<int>(lnc.nLayers()); j++) {
       mkFitHits[j].shrink_to_fit();
-      set_barycenters[j].shrink_to_fit();
+      set_stripids[j].shrink_to_fit();
       set_detIds[j].shrink_to_fit();
     }
 
-    ev.emplace(outputToken_, std::move(mkFitHits), totalHits, std::move(set_barycenters), std::move(set_detIds));
+    ev.emplace(outputToken_, totalHits, std::move(mkFitHits), std::move(set_stripids), std::move(set_detIds));
   }
 
 private:
@@ -144,20 +154,25 @@ private:
   std::unique_ptr<MkFitSiStripClustersCUDA::HostView> hostView_x;
 
   edm::EDGetTokenT<cms::cuda::Product<SiStripClustersCUDA>> inputToken_;
-  edm::EDPutTokenT<MkFitRecHitWrapper> outputToken_;
   edm::EDGetTokenT<MkFitHitWrapper> pixelhitToken_;
+  edm::EDPutTokenT<MkFitRecHitWrapper> outputToken_;
 
   edm::ESGetToken<SiStripGPULocalToGlobalMap, SiStripGPULocalToGlobalMapRcd> geometryToken_;
   edm::ESGetToken<TrackerTopology, TrackerTopologyRcd> topologyToken_;
+  edm::ESGetToken<MkFitGeometry, TrackerRecoGeometryRecord> mkFitGeomToken_;
+  float minGoodStripCharge_;
 };
 
 void MkFitSiStripHitsFromSOA::fillDescriptions(edm::ConfigurationDescriptions& descriptions) {
   edm::ParameterSetDescription desc;
   desc.add("pixelhits", edm::InputTag{"mkFitPixelConverter"});
   desc.add("siClusters", edm::InputTag{"SiStripClustersFromRawFacility"});
-  desc.add("stripRphiRecHits", edm::InputTag{"siStripMatchedRecHits", "rphiRecHit"});
-  desc.add("stripStereoRecHits", edm::InputTag{"siStripMatchedRecHits", "stereoRecHit"});
   desc.add<std::string>("ConditionsLabel", "");
+
+  edm::ParameterSetDescription descCCC;
+  descCCC.add<double>("value");
+  desc.add("minGoodStripCharge", descCCC);
+
   descriptions.add("mkFitHitsFromSOADefault", desc);
 }
 

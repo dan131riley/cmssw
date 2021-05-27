@@ -108,6 +108,7 @@ namespace stripgpu {
     const uint8_t MaxSequentialHoles = sst_data_d->MaxSequentialHoles_;
     const float ChannelThreshold = sst_data_d->ChannelThreshold_;
     const float ClusterThresholdSquared = sst_data_d->ClusterThresholdSquared_;
+    const int ClusterSizeLimit = sst_data_d->clusterSizeLimit_;
 
     uint32_t *__restrict__ clusterIndexLeft = clust_data_d->clusterIndex_;
     uint32_t *__restrict__ clusterSize = clust_data_d->clusterSize_;
@@ -136,6 +137,7 @@ namespace stripgpu {
       // find left boundary
       auto indexLeft = index;
       auto testIndex = index - 1;
+      auto size = 1;
 
       if (testIndex >= 0 && stripId[testIndex] == stripgpu::invStrip) {
         testIndex -= 2;
@@ -147,7 +149,7 @@ namespace stripgpu {
         auto testDet = chanlocs->detID(testchan);
         auto sameDetLeft = det == testDet;
 
-        while (sameDetLeft && rangeLeft >= 0 && rangeLeft <= MaxSequentialHoles) {
+        while (sameDetLeft && rangeLeft >= 0 && rangeLeft <= MaxSequentialHoles && size < ClusterSizeLimit) {
           testchan = channels[testIndex];
           const auto testFed = chanlocs->fedID(testchan);
           const auto testChannel = chanlocs->fedCh(testchan);
@@ -156,6 +158,7 @@ namespace stripgpu {
           const auto testADC = adc[testIndex];
 
           if (testADC >= static_cast<uint8_t>(testNoise * ChannelThreshold)) {
+            ++size;
             indexLeft = testIndex;
             noiseSquared_i += testNoise * testNoise;
             adcSum_i += static_cast<float>(testADC);
@@ -189,7 +192,7 @@ namespace stripgpu {
         auto testDet = chanlocs->detID(testchan);
         auto sameDetRight = det == testDet;
 
-        while (sameDetRight && rangeRight >= 0 && rangeRight <= MaxSequentialHoles) {
+        while (sameDetRight && rangeRight >= 0 && rangeRight <= MaxSequentialHoles && size < ClusterSizeLimit) {
           testchan = channels[testIndex];
           const auto testFed = chanlocs->fedID(testchan);
           const auto testChannel = chanlocs->fedCh(testchan);
@@ -198,6 +201,7 @@ namespace stripgpu {
           const auto testADC = adc[testIndex];
 
           if (testADC >= static_cast<uint8_t>(testNoise * ChannelThreshold)) {
+            ++size;
             indexRight = testIndex;
             noiseSquared_i += testNoise * testNoise;
             adcSum_i += static_cast<float>(testADC);
@@ -221,7 +225,7 @@ namespace stripgpu {
       clusterDetId[i] = det;
       firstStrip[i] = stripId[indexLeft];
       trueCluster[i] =
-          (noiseSquared_i * ClusterThresholdSquared <= adcSum_i * adcSum_i) and (clusterSize[i] <= kClusterMaxStrips);
+          (noiseSquared_i * ClusterThresholdSquared <= adcSum_i * adcSum_i) and (clusterSize[i] <= ClusterSizeLimit);
     }
   }
 
@@ -234,12 +238,13 @@ namespace stripgpu {
     const uint8_t *__restrict__ adc = sst_data_d->adc;
     const int nSeedStripsNC = std::min(maxseeds(), *(sst_data_d->prefixSeedStripsNCMask + sst_data_d->nStrips - 1));
     const float minGoodCharge = sst_data_d->minGoodCharge_;  //1620.0;
-
     const uint32_t *__restrict__ clusterIndexLeft = clust_data_d->clusterIndex_;
-    const uint32_t *__restrict__ clusterSize = clust_data_d->clusterSize_;
+
+    uint32_t *__restrict__ clusterSize = clust_data_d->clusterSize_;
     uint8_t *__restrict__ clusterADCs = clust_data_d->clusterADCs_;
     bool *__restrict__ trueCluster = clust_data_d->trueCluster_;
     float *__restrict__ barycenter = clust_data_d->barycenter_;
+    float *__restrict__ charge = clust_data_d->charge_;
 
     constexpr uint16_t stripIndexMask = 0x7FFF;
 
@@ -281,7 +286,9 @@ namespace stripgpu {
               if (adc_j < 254) {
                 adc_j = (charge > 1022 ? 255 : (charge > 253 ? 254 : charge));
               }
-              clusterADCs[j * nSeedStripsNC + i] = adc_j;
+              if (j < kClusterMaxStrips) {
+                clusterADCs[j * nSeedStripsNC + i] = adc_j;
+              }
               adcSum += static_cast<float>(adc_j);
               sumx += j * adc_j;
               suma += adc_j;
@@ -291,6 +298,8 @@ namespace stripgpu {
           const auto chan = channels[left];
           const fedId_t fed = chanlocs->fedID(chan);
           const fedCh_t channel = chanlocs->fedCh(chan);
+          clusterSize[i] = j;
+          charge[i] = adcSum;
           trueCluster[i] = (adcSum * conditions->invthick(fed, channel)) > minGoodCharge;
           barycenter[i] = static_cast<float>(stripId[left] & stripIndexMask) +
                           static_cast<float>(sumx) / static_cast<float>(suma) + 0.5f;
@@ -320,6 +329,7 @@ namespace stripgpu {
     sst_data_d_->MaxSequentialBad_ = MaxSequentialBad_;
     sst_data_d_->MaxAdjacentBad_ = MaxAdjacentBad_;
     sst_data_d_->minGoodCharge_ = minGoodCharge_;
+    sst_data_d_->clusterSizeLimit_ = keepLargeClusters_ ? 256 : kClusterMaxStrips;
 
     pt_sst_data_d_ = cms::cuda::make_device_unique<sst_data_t>(stream);
     cms::cuda::copyAsync(pt_sst_data_d_, sst_data_d_, stream);
