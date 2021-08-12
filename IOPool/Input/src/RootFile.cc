@@ -300,6 +300,7 @@ namespace edm {
       IdToBlobs* pIdToBlob = &idToBlob;
       psetTree->SetBranchAddress(poolNames::idToParameterSetBlobsBranchName().c_str(), &pIdToBlob);
 
+      //filePtr_->SetCacheRead(nullptr);
       std::unique_ptr<TTreeCache> psetTreeCache =
           roottree::trainCache(psetTree.get(), *filePtr_, roottree::defaultNonEventCacheSize, "*");
       psetTreeCache->SetEnablePrefetching(false);
@@ -611,6 +612,7 @@ namespace edm {
 
     // Tell the event tree to begin training at the next read.
     eventTree_.resetTraining();
+    eventTree_.setEntryNumber(0);
 
     // Train the run and lumi trees.
     runTree_.trainCache("*");
