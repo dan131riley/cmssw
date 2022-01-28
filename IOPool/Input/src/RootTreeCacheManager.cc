@@ -37,36 +37,36 @@ namespace edm {
       void resetTraining() override;
       void getEntry(TBranch* branch, EntryNumber entryNumber) override;
     private:
-      // We use a smart pointer to own the TTreeCache.
-      // Unfortunately, ROOT owns it when attached to a TFile, but not after it is detached.
-      // So, we make sure to it is detached before closing the TFile so there is no double delete.
-      std::unique_ptr<TTreeCache> treeCache_;
+      // SimpleCache does not own the treeCache_
+      TTreeCache* treeCache_;
       std::unique_ptr<oneapi::tbb::task_arena> arena_;
       BranchType branchType_;
       unsigned int learningEntries_;
       bool enablePrefetching_;
     };
 
-    SimpleCache::~SimpleCache() { reset(); }
+    SimpleCache::~SimpleCache() {}
 
     void SimpleCache::reset() {
-      SetCacheRead(nullptr);
       if (treeCache_) {
         treeCache_->Print();
-        treeCache_.reset();
       }
     }
 
     void SimpleCache::setEntryNumber(EntryNumber theEntryNumber, EntryNumber entryNumber, EntryNumber entries) {
-      auto const guard = edm::scope_exit{[&] { SetCacheRead(nullptr); }};
-      SetCacheRead(treeCache_.get());
       tree_->LoadTree(theEntryNumber);
+      if (theEntryNumber > learningEntries_ && treeCache_->IsLearning()) {
+        treeCache_->StopLearningPhase();
+      }
+      if (arena_ && !treeCache_->IsLearning()) {
+        arena_->execute([&]() {
+          treeCache_->FillBuffer();
+        });
+      }
     }
 
     void SimpleCache::getEntry(TBranch* branch, EntryNumber entryNumber) {
-      auto const guard = edm::scope_exit{[&] { SetCacheRead(nullptr); }};
-      SetCacheRead(treeCache_.get());
-      if (treeCache_->IsLearning()) {
+      if (entryNumber < learningEntries_ || treeCache_->IsLearning()) {
         treeCache_->AddBranch(branch, kTRUE);
       }
       if (arena_) {
@@ -79,33 +79,29 @@ namespace edm {
     }
 
     void SimpleCache::setCacheSize(unsigned int cacheSize) {
-      auto const guard = edm::scope_exit{[&] { SetCacheRead(nullptr); }};
-
       if (branchType_ == InEvent) {
         TTreeCacheUnzip::SetParallelUnzip();
-        tree_->SetParallelUnzip(true, 2.0f);
+        tree_->SetParallelUnzip(true);
         arena_ = std::make_unique<oneapi::tbb::task_arena>(tbb::this_task_arena::max_concurrency());
+        enablePrefetching_ = true;
       }
 
       tree_->SetCacheSize(static_cast<Long64_t>(cacheSize));
-      treeCache_.reset(dynamic_cast<TTreeCache*>(filePtr_->GetCacheRead(tree_)));
+      treeCache_ = dynamic_cast<TTreeCache*>(filePtr_->GetCacheRead(tree_));
 
       if (treeCache_) {
         treeCache_->SetEnablePrefetching(enablePrefetching_);
         treeCache_->SetLearnEntries(learningEntries_);
-        //treeCache->SetOptimizeMisses(true); // breaks TFileAdaptor
+        treeCache_->SetOptimizeMisses(true);
       }
     }
 
     void SimpleCache::resetTraining() {
-      treeCache_->Print();
       trainCache(nullptr);
-      treeCache_->Print();
+      treeCache_->SetLearnEntries(learningEntries_);
     }
 
     void SimpleCache::trainCache(char const* branchNames) {
-      auto const guard = edm::scope_exit{[&] { SetCacheRead(nullptr); }};
-      SetCacheRead(treeCache_.get());
       treeCache_->StartLearningPhase();
       tree_->LoadTree(0);
       tree_->SetCacheEntryRange(0, tree_->GetEntries());
