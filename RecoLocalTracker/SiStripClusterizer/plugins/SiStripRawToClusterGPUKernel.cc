@@ -62,7 +62,10 @@ namespace stripgpu {
         if (fedRawDataOffsets_.size() == 1) {
           mode = buff->readoutMode();
         } else {
-          assert(buff->readoutMode() == mode);
+          if (buff->readoutMode() != mode) {
+            throw cms::Exception("[SiStripRawToClusterGPUKernel] inconsistent readout mode ")
+                << buff->readoutMode() << " != " << mode;
+          }
         }
       }
     }
@@ -70,6 +73,9 @@ namespace stripgpu {
     cms::cuda::copyAsync(fedRawDataGPU, fedRawDataHost_, totalSize, stream);
 
     const auto& detmap = conditions.detToFeds();
+    if ((mode != sistrip::READOUT_MODE_ZERO_SUPPRESSED) && (mode != sistrip::READOUT_MODE_ZERO_SUPPRESSED_LITE10)) {
+      throw cms::Exception("[SiStripRawToClusterGPUKernel] unsupported readout mode ") << mode;
+    }
     const uint16_t headerlen = mode == sistrip::READOUT_MODE_ZERO_SUPPRESSED ? 7 : 2;
     size_t offset = 0;
     chanlocs_ = std::make_unique<ChannelLocs>(detmap.size(), stream);
