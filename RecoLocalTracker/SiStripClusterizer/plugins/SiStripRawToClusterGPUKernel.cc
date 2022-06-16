@@ -18,7 +18,7 @@ namespace stripgpu {
   }
 
   SiStripRawToClusterGPUKernel::SiStripRawToClusterGPUKernel(const edm::ParameterSet& conf)
-      : fedIndex_(stripgpu::kFedCount, stripgpu::invalidFed),
+      : fedIndex_(sistrip::NUMBER_OF_FEDS, stripgpu::invalidFed),
         channelThreshold_(conf.getParameter<double>("ChannelThreshold")),
         seedThreshold_(conf.getParameter<double>("SeedThreshold")),
         clusterThresholdSquared_(std::pow(conf.getParameter<double>("ClusterThreshold"), 2.0f)),
@@ -27,7 +27,7 @@ namespace stripgpu {
         maxAdjacentBad_(conf.getParameter<unsigned>("MaxAdjacentBad")),
         maxClusterSize_(conf.getParameter<unsigned>("MaxClusterSize")),
         minGoodCharge_(clusterChargeCut(conf)) {
-    fedRawDataOffsets_.reserve(stripgpu::kFedCount);
+    fedRawDataOffsets_.reserve(sistrip::NUMBER_OF_FEDS);
   }
 
   void SiStripRawToClusterGPUKernel::makeAsync(const std::vector<const FEDRawData*>& rawdata,
@@ -47,7 +47,7 @@ namespace stripgpu {
     size_t off = 0;
     fedRawDataOffsets_.clear();
     fedIndex_.clear();
-    fedIndex_.resize(stripgpu::kFedCount, stripgpu::invalidFed);
+    fedIndex_.resize(sistrip::NUMBER_OF_FEDS, stripgpu::invalidFed);
 
     sistrip::FEDReadoutMode mode = sistrip::READOUT_MODE_INVALID;
 
