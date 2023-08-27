@@ -8,6 +8,25 @@
 #include <dlfcn.h>  // dlsym
 
 namespace {
+  char tmpbuff[131072];
+  unsigned long tmppos = 0;
+  unsigned long tmpallocs = 0;
+
+  void* local_malloc(size_t size) noexcept {
+    if (tmppos + size < sizeof(tmpbuff))
+    {
+      void *retptr = tmpbuff + tmppos;
+      tmppos += size;
+      ++tmpallocs;
+      return retptr;
+    } else {
+      return nullptr;
+    }
+  }
+
+  void* local_calloc(size_t nitems, size_t item_size) noexcept {
+    return local_malloc(nitems*item_size);
+  }
 
   std::atomic<bool>& alloc_monitor_running_state() {
     static std::atomic<bool> s_state = false;
@@ -21,9 +40,26 @@ namespace {
     return reinterpret_cast<T>(original);
   }
 
+  struct originals {
+    static void init() {
+      if (not set) {
+        set = true;
+        malloc = get<decltype(&::malloc)>("malloc");
+        calloc = get<decltype(&::calloc)>("calloc");
+      }
+    }
+    static decltype(&::malloc) malloc;
+    static decltype(&::calloc) calloc;
+    static bool set; // atomic?
+  };
+
+  decltype(&::malloc) originals::malloc = local_malloc;
+  decltype(&::calloc) originals::calloc = local_calloc;
+  bool originals::set = false;
 }  // namespace
 
 using namespace cms::perftools;
+
 extern "C" {
 void alloc_monitor_start() { alloc_monitor_running_state() = true; }
 void alloc_monitor_stop() { alloc_monitor_running_state() = false; }
@@ -32,17 +68,20 @@ void alloc_monitor_stop() { alloc_monitor_running_state() = false; }
 //C memory functions
 
 void* malloc(size_t size) noexcept {
-  static auto original = get<decltype(&::malloc)>("malloc");
+  auto original = originals::malloc;
+  originals::init();
+
   if (not alloc_monitor_running_state()) {
     return original(size);
   }
   auto& reg = AllocMonitorRegistry::instance();
   return reg.allocCalled(
-      size, [size]() { return original(size); }, [](auto ret) { return malloc_usable_size(ret); });
+      size, [size, original]() { return original(size); }, [](auto ret) { return malloc_usable_size(ret); });
 }
 
 void* calloc(size_t nitems, size_t item_size) noexcept {
-  static auto original = get<decltype(&::calloc)>("calloc");
+  auto original = originals::calloc;
+  originals::init();
 
   if (not alloc_monitor_running_state()) {
     return original(nitems, item_size);
@@ -50,7 +89,7 @@ void* calloc(size_t nitems, size_t item_size) noexcept {
   auto& reg = AllocMonitorRegistry::instance();
   return reg.allocCalled(
       nitems * item_size,
-      [nitems, item_size]() { return original(nitems, item_size); },
+      [nitems, item_size, original]() { return original(nitems, item_size); },
       [](auto ret) { return malloc_usable_size(ret); });
 }
 
@@ -91,15 +130,17 @@ void* aligned_alloc(size_t alignment, size_t size) noexcept {
 
 void free(void* ptr) noexcept {
   static auto original = get<decltype(&::free)>("free");
-  if (not alloc_monitor_running_state()) {
-    original(ptr);
-    return;
-  }
+  if (not (ptr >= (void*) tmpbuff && ptr <= (void*)(tmpbuff + tmppos))) {
+    if (not alloc_monitor_running_state()) {
+      original(ptr);
+      return;
+    }
 
-  auto& reg = AllocMonitorRegistry::instance();
-  reg.deallocCalled([ptr]() { original(ptr); }, [ptr]() { return malloc_usable_size(ptr); });
+    auto& reg = AllocMonitorRegistry::instance();
+    reg.deallocCalled([ptr]() { original(ptr); }, [ptr]() { return malloc_usable_size(ptr); });
+  }
 }
-}
+} // extern "C"
 
 //----------------------------------------------------------------
 //C++ memory functions
