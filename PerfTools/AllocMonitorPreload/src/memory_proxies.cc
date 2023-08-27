@@ -1,6 +1,7 @@
 #include <memory>
 #include <cassert>
 #include <atomic>
+#include <cstddef>
 #include <malloc.h>
 
 #include "PerfTools/AllocMonitor/interface/AllocMonitorRegistry.h"
@@ -8,14 +9,19 @@
 #include <dlfcn.h>  // dlsym
 
 namespace {
-  char tmpbuff[131072];
+  // this is a very simple-minded allocator used for any allocations
+  // before we've finished our setup.  In particular, this avoids a
+  // chicken/egg problem if dlsym() allocates any memory.
+  constexpr auto max_align = alignof(std::max_align_t);
+  alignas(max_align) char tmpbuff[131072];
   unsigned long tmppos = 0;
   unsigned long tmpallocs = 0;
 
   void* local_malloc(size_t size) noexcept {
-    if (tmppos + size < sizeof(tmpbuff))
-    {
-      void *retptr = tmpbuff + tmppos;
+    // round up so next alloc is aligned
+    size = ((size + max_align - 1) / max_align) * max_align;
+    if (tmppos + size < sizeof(tmpbuff)) {
+      void* retptr = tmpbuff + tmppos;
       tmppos += size;
       ++tmpallocs;
       return retptr;
@@ -24,9 +30,7 @@ namespace {
     }
   }
 
-  void* local_calloc(size_t nitems, size_t item_size) noexcept {
-    return local_malloc(nitems*item_size);
-  }
+  void* local_calloc(size_t nitems, size_t item_size) noexcept { return local_malloc(nitems * item_size); }
 
   std::atomic<bool>& alloc_monitor_running_state() {
     static std::atomic<bool> s_state = false;
@@ -40,17 +44,20 @@ namespace {
     return reinterpret_cast<T>(original);
   }
 
+  // the pointers in this struct should only be modified during
+  // global construction at program startup, so thread safety
+  // should not be an issue.
   struct originals {
     static void init() {
       if (not set) {
-        set = true;
+        set = true;  // must be first to avoid recursion
         malloc = get<decltype(&::malloc)>("malloc");
         calloc = get<decltype(&::calloc)>("calloc");
       }
     }
     static decltype(&::malloc) malloc;
     static decltype(&::calloc) calloc;
-    static bool set; // atomic?
+    static bool set;
   };
 
   decltype(&::malloc) originals::malloc = local_malloc;
@@ -130,7 +137,8 @@ void* aligned_alloc(size_t alignment, size_t size) noexcept {
 
 void free(void* ptr) noexcept {
   static auto original = get<decltype(&::free)>("free");
-  if (not (ptr >= (void*) tmpbuff && ptr <= (void*)(tmpbuff + tmppos))) {
+  // ignore memory allocated from our static array at startup
+  if (not(ptr >= (void*)tmpbuff && ptr <= (void*)(tmpbuff + tmppos))) {
     if (not alloc_monitor_running_state()) {
       original(ptr);
       return;
@@ -140,7 +148,7 @@ void free(void* ptr) noexcept {
     reg.deallocCalled([ptr]() { original(ptr); }, [ptr]() { return malloc_usable_size(ptr); });
   }
 }
-} // extern "C"
+}  // extern "C"
 
 //----------------------------------------------------------------
 //C++ memory functions
