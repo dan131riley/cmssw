@@ -8,7 +8,24 @@
 
 #include <dlfcn.h>  // dlsym
 
+#if !defined(__x86_64__) && !defined(__i386__)
+#define USE_LOCAL_MALLOC
+#endif
+
 namespace {
+  std::atomic<bool>& alloc_monitor_running_state() {
+    static std::atomic<bool> s_state = false;
+    return s_state;
+  }
+
+  template <typename T>
+  T get(const char* iName) {
+    void* original = dlsym(RTLD_NEXT, iName);
+    assert(original);
+    return reinterpret_cast<T>(original);
+  }
+
+#ifdef USE_LOCAL_MALLOC
   // this is a very simple-minded allocator used for any allocations
   // before we've finished our setup.  In particular, this avoids a
   // chicken/egg problem if dlsym() allocates any memory.
@@ -32,23 +49,13 @@ namespace {
 
   void* local_calloc(size_t nitems, size_t item_size) noexcept { return local_malloc(nitems * item_size); }
 
-  std::atomic<bool>& alloc_monitor_running_state() {
-    static std::atomic<bool> s_state = false;
-    return s_state;
-  }
-
-  template <typename T>
-  T get(const char* iName) {
-    void* original = dlsym(RTLD_NEXT, iName);
-    assert(original);
-    return reinterpret_cast<T>(original);
-  }
+  inline bool is_local_alloc(void* ptr) noexcept { return ptr >= (void*)tmpbuff && ptr <= (void*)(tmpbuff + tmppos); }
 
   // the pointers in this struct should only be modified during
   // global construction at program startup, so thread safety
   // should not be an issue.
   struct originals {
-    static void init() {
+    inline static void init() noexcept {
       if (not set) {
         set = true;  // must be first to avoid recursion
         malloc = get<decltype(&::malloc)>("malloc");
@@ -63,6 +70,9 @@ namespace {
   decltype(&::malloc) originals::malloc = local_malloc;
   decltype(&::calloc) originals::calloc = local_calloc;
   bool originals::set = false;
+#else
+  constexpr inline bool is_local_alloc(void* ptr) noexcept { return false; }
+#endif
 }  // namespace
 
 using namespace cms::perftools;
@@ -74,10 +84,10 @@ void alloc_monitor_stop() { alloc_monitor_running_state() = false; }
 //----------------------------------------------------------------
 //C memory functions
 
+#ifdef USE_LOCAL_MALLOC
 void* malloc(size_t size) noexcept {
-  auto original = originals::malloc;
+  const auto original = originals::malloc;
   originals::init();
-
   if (not alloc_monitor_running_state()) {
     return original(size);
   }
@@ -87,9 +97,8 @@ void* malloc(size_t size) noexcept {
 }
 
 void* calloc(size_t nitems, size_t item_size) noexcept {
-  auto original = originals::calloc;
+  const auto original = originals::calloc;
   originals::init();
-
   if (not alloc_monitor_running_state()) {
     return original(nitems, item_size);
   }
@@ -99,6 +108,29 @@ void* calloc(size_t nitems, size_t item_size) noexcept {
       [nitems, item_size, original]() { return original(nitems, item_size); },
       [](auto ret) { return malloc_usable_size(ret); });
 }
+#else
+void* malloc(size_t size) noexcept {
+  static const auto original = get<decltype(&::malloc)>("malloc");
+  if (not alloc_monitor_running_state()) {
+    return original(size);
+  }
+  auto& reg = AllocMonitorRegistry::instance();
+  return reg.allocCalled(
+      size, [size]() { return original(size); }, [](auto ret) { return malloc_usable_size(ret); });
+}
+
+void* calloc(size_t nitems, size_t item_size) noexcept {
+  static const auto original = get<decltype(&::calloc)>("calloc");
+  if (not alloc_monitor_running_state()) {
+    return original(nitems, item_size);
+  }
+  auto& reg = AllocMonitorRegistry::instance();
+  return reg.allocCalled(
+      nitems * item_size,
+      [nitems, item_size]() { return original(nitems, item_size); },
+      [](auto ret) { return malloc_usable_size(ret); });
+}
+#endif
 
 void* realloc(void* ptr, size_t size) noexcept {
   static auto original = get<decltype(&::realloc)>("realloc");
@@ -138,7 +170,7 @@ void* aligned_alloc(size_t alignment, size_t size) noexcept {
 void free(void* ptr) noexcept {
   static auto original = get<decltype(&::free)>("free");
   // ignore memory allocated from our static array at startup
-  if (not(ptr >= (void*)tmpbuff && ptr <= (void*)(tmpbuff + tmppos))) {
+  if (not is_local_alloc(ptr)) {
     if (not alloc_monitor_running_state()) {
       original(ptr);
       return;
