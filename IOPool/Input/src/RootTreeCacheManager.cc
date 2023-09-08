@@ -12,14 +12,16 @@
 
 #include <unordered_set>
 #include <cassert>
+#include <iostream>
 
 #include "oneapi/tbb/task_arena.h"
 
+#define ROOTDBG
+#define PARALLELUNZIP
+
 namespace edm {
   namespace roottree {
-    void CacheManagerBase::getEntry(TBranch* branch, EntryNumber entryNumber) {
-      branch->GetEntry(entryNumber);
-    }
+    void CacheManagerBase::getEntry(TBranch* branch, EntryNumber entryNumber) { branch->GetEntry(entryNumber); }
     void CacheManagerBase::SetCacheRead(TTreeCache* cache) { filePtr_->SetCacheRead(cache, tree_); }
 
     class SimpleCache : public CacheManagerBase {
@@ -27,15 +29,14 @@ namespace edm {
       SimpleCache(std::shared_ptr<InputFile> filePtr,
                   unsigned int learningEntries,
                   bool enablePrefetching,
-                  BranchType const& branchType)
-          : CacheManagerBase(filePtr), branchType_(branchType), learningEntries_(learningEntries), enablePrefetching_(enablePrefetching) {}
-      ~SimpleCache() override;
+                  BranchType const& branchType);
       void reset() override;
       void setCacheSize(unsigned int cacheSize) override;
       void setEntryNumber(EntryNumber theEntryNumber, EntryNumber entryNumber, EntryNumber entries) override;
       void trainCache(char const* branchNames) override;
       void resetTraining() override;
       void getEntry(TBranch* branch, EntryNumber entryNumber) override;
+
     private:
       // SimpleCache does not own the treeCache_
       TTreeCache* treeCache_;
@@ -45,7 +46,21 @@ namespace edm {
       bool enablePrefetching_;
     };
 
-    SimpleCache::~SimpleCache() {}
+    SimpleCache::SimpleCache(std::shared_ptr<InputFile> filePtr,
+                             unsigned int learningEntries,
+                             bool enablePrefetching,
+                             BranchType const& branchType)
+        : CacheManagerBase(filePtr),
+          branchType_(branchType),
+          learningEntries_(learningEntries),
+          enablePrefetching_(enablePrefetching) {
+      if (branchType_ == InEvent) {
+#ifdef PARALLELUNZIP
+        TTreeCacheUnzip::SetParallelUnzip();
+        //enablePrefetching_ = true;
+#endif
+      }
+    }
 
     void SimpleCache::reset() {
       if (treeCache_) {
@@ -57,43 +72,70 @@ namespace edm {
       tree_->LoadTree(theEntryNumber);
       if (theEntryNumber > learningEntries_ && treeCache_->IsLearning()) {
         treeCache_->StopLearningPhase();
+        std::cout << "TTreeCache stop learning\n";
       }
-      if (arena_ && !treeCache_->IsLearning()) {
-        arena_->execute([&]() {
-          treeCache_->FillBuffer();
-        });
+      if (arena_ && theEntryNumber > learningEntries_ && !treeCache_->IsLearning()) {
+#ifdef ROOTDBG
+        gDebug = 1;
+#endif
+        arena_->execute([&]() { treeCache_->FillBuffer(); });
       }
+      gDebug = 0;
+      assert(dynamic_cast<TTreeCache*>(filePtr_->GetCacheRead(tree_)) == treeCache_);
     }
 
     void SimpleCache::getEntry(TBranch* branch, EntryNumber entryNumber) {
       if (entryNumber < learningEntries_ || treeCache_->IsLearning()) {
         treeCache_->AddBranch(branch, kTRUE);
+      } else {
+#ifdef ROOTDBG
+        gDebug = 1;
+#endif
       }
       if (arena_) {
         arena_->execute([&]() {
           branch->GetEntry(entryNumber);
+          treeCache_->FillBuffer();
         });
       } else {
         branch->GetEntry(entryNumber);
       }
+      gDebug = 0;
+      assert(dynamic_cast<TTreeCache*>(filePtr_->GetCacheRead(tree_)) == treeCache_);
     }
 
     void SimpleCache::setCacheSize(unsigned int cacheSize) {
       if (branchType_ == InEvent) {
-        TTreeCacheUnzip::SetParallelUnzip();
+#ifdef ROOTDBG
+        gDebug = 1;
+#endif
+#ifdef PARALLELUNZIP
         tree_->SetParallelUnzip(true);
         arena_ = std::make_unique<oneapi::tbb::task_arena>(tbb::this_task_arena::max_concurrency());
+        assert(TTreeCacheUnzip::IsParallelUnzip());
+#endif
         enablePrefetching_ = true;
+      } else {
+        tree_->SetParallelUnzip(false);
       }
 
       tree_->SetCacheSize(static_cast<Long64_t>(cacheSize));
       treeCache_ = dynamic_cast<TTreeCache*>(filePtr_->GetCacheRead(tree_));
+      assert(treeCache_);
 
       if (treeCache_) {
         treeCache_->SetEnablePrefetching(enablePrefetching_);
         treeCache_->SetLearnEntries(learningEntries_);
         treeCache_->SetOptimizeMisses(true);
       }
+
+#ifdef PARALLELUNZIP
+      if (branchType_ == InEvent) {
+        auto treeCacheUnzip = dynamic_cast<TTreeCacheUnzip*>(filePtr_->GetCacheRead(tree_));
+        assert(TTreeCacheUnzip::IsParallelUnzip() && treeCacheUnzip);
+      }
+#endif
+      gDebug = 0;
     }
 
     void SimpleCache::resetTraining() {
@@ -102,6 +144,10 @@ namespace edm {
     }
 
     void SimpleCache::trainCache(char const* branchNames) {
+      std::cout << "TTreeCache starting training\n";
+      if (branchType_ != InEvent) {
+        tree_->SetParallelUnzip(false);
+      }
       treeCache_->StartLearningPhase();
       tree_->LoadTree(0);
       tree_->SetCacheEntryRange(0, tree_->GetEntries());
@@ -360,16 +406,20 @@ namespace edm {
       rawTreeCache_.reset();
     }
 
-    void SparseReadCache::resetTraining() { 
+    void SparseReadCache::resetTraining() {
       treeCache_->StartLearningPhase();
       trainNow_ = true;
     }
 
     void SparseReadCache::reset() {
-      if (treeCache_) treeCache_->Print();
-      if (rawTreeCache_) rawTreeCache_->Print();
-      if (triggerTreeCache_) triggerTreeCache_->Print();
-      if (rawTriggerTreeCache_) rawTriggerTreeCache_->Print();
+      if (treeCache_)
+        treeCache_->Print();
+      if (rawTreeCache_)
+        rawTreeCache_->Print();
+      if (triggerTreeCache_)
+        triggerTreeCache_->Print();
+      if (rawTriggerTreeCache_)
+        rawTriggerTreeCache_->Print();
       SetCacheRead(nullptr);
       treeCache_.reset();
       rawTreeCache_.reset();
