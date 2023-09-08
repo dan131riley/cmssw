@@ -21,7 +21,7 @@ namespace edm {
     class CacheManagerBase {
     public:
       CacheManagerBase(std::shared_ptr<InputFile> filePtr) : filePtr_(filePtr) {}
-      virtual ~CacheManagerBase() {}
+      virtual ~CacheManagerBase() = default;
 
       virtual void setCacheSize(unsigned int cacheSize) = 0;
       virtual void setEntryNumber(EntryNumber theEntryNumber, EntryNumber entryNumber, EntryNumber entries) = 0;
