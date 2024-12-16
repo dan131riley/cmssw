@@ -17,16 +17,9 @@
 #include <ROOT/RNTupleModel.hxx>
 #include <ROOT/RPageStorageFile.hxx>
 using ROOT::Experimental::RNTupleModel;
-#if ROOT_VERSION_CODE < ROOT_VERSION(6, 31, 0)
-using ROOT::Experimental::RNTupleWriter;
-using ROOT::Experimental::Detail::RPageSinkFile;
-#define MakeRNTupleWriter std::make_unique<RNTupleWriter>
-#include <ROOT/RNTupleOptions.hxx>
-#else
 using ROOT::Experimental::Internal::RPageSinkFile;
 #define MakeRNTupleWriter ROOT::Experimental::Internal::CreateRNTupleWriter
 #include <ROOT/RNTupleWriteOptions.hxx>
-#endif
 using ROOT::Experimental::RNTupleWriteOptions;
 
 #include "TObjString.h"
@@ -227,7 +220,7 @@ void NanoAODRNTupleOutputModule::write(edm::EventForOutput const& iEvent) {
   m_commonFields.fill(iEvent.id());
   m_tables.fill(iEvent);
   for (auto& trigger : m_triggers) {
-    trigger.fill(iEvent);
+    trigger.fill(iEvent, *m_ntuple);
   }
   m_evstrings.fill(iEvent);
   m_ntuple->Fill();

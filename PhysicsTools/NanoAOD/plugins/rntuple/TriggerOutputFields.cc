@@ -13,6 +13,10 @@
 
 #include <algorithm>
 
+#include <ROOT/RNTupleWriter.hxx>
+
+using ROOT::Experimental::RField;
+
 namespace {
 
   void trimVersionSuffix(std::string& trigger_name) {
@@ -38,6 +42,10 @@ TriggerFieldPtr::TriggerFieldPtr(
     : m_triggerName(name), m_triggerIndex(index) {
   m_field = RNTupleFieldPtr<bool>(fieldName, fieldDesc, model);
 }
+
+TriggerFieldPtr::TriggerFieldPtr(
+    std::string name, int index, RNTupleFieldPtr<bool> field)
+    : m_triggerName(name), m_triggerIndex(index), m_field(field) {}
 
 void TriggerFieldPtr::fill(const edm::TriggerResults& triggers) {
   if (m_triggerIndex == -1) {
@@ -89,7 +97,7 @@ void TriggerOutputFields::createFields(const edm::EventForOutput& event, RNTuple
 }
 
 // Worst case O(n^2) to adjust the triggers
-void TriggerOutputFields::updateTriggerFields(const edm::TriggerResults& triggers) {
+void TriggerOutputFields::updateTriggerFields(const edm::TriggerResults& triggers, RNTupleWriter& writer) {
   std::vector<std::string> newNames(TriggerOutputFields::getTriggerNames(triggers));
   // adjust existing trigger indices
   for (auto& t : m_triggerFields) {
@@ -97,7 +105,7 @@ void TriggerOutputFields::updateTriggerFields(const edm::TriggerResults& trigger
     for (std::size_t j = 0; j < newNames.size(); j++) {
       auto& name = newNames[j];
       if (!isNanoaodTrigger(name)) {
-        continue;
+	      continue;
       }
       trimVersionSuffix(name);
       if (name == t.getTriggerName()) {
@@ -115,19 +123,23 @@ void TriggerOutputFields::updateTriggerFields(const edm::TriggerResults& trigger
     if (std::none_of(m_triggerFields.cbegin(), m_triggerFields.cend(), [&](const TriggerFieldPtr& t) {
           return t.getTriggerName() == name;
         })) {
-      // TODO backfill / friend ntuples
-      edm::LogWarning("TriggerOutputFields") << "Skipping output of TriggerField " << name << "\n";
+      auto& model = writer.GetModel();
+      std::string modelName = name;
+      makeUniqueFieldName(model, modelName);
+      //std::string desc = std::string("Trigger/flag bit (process: ") + m_processName + ")";
+      //auto i = m_triggerFields.size();
+      //m_triggerFields.emplace_back(TriggerFieldPtr(name, i, modelName, desc, model));
+      auto updater = writer.CreateModelUpdater();
+      updater->BeginUpdate();
+      updater->AddField(std::make_unique<RField<std::string>>(modelName));
+      updater->CommitUpdate();
     }
   }
 }
 
-void TriggerOutputFields::makeUniqueFieldName(RNTupleModel& model, std::string& name) {
+void TriggerOutputFields::makeUniqueFieldName(const RNTupleModel& model, std::string& name) {
   // Could also use a cache of names in a higher-level object, don't ask the RNTupleModel each time
-#if ROOT_VERSION_CODE < ROOT_VERSION(6, 31, 0)
-  auto existing_field = model.Get<bool>(name);
-#else
   auto existing_field = model.GetDefaultEntry().GetPtr<bool>(name);
-#endif
   if (!existing_field) {
     return;
   }
@@ -137,13 +149,13 @@ void TriggerOutputFields::makeUniqueFieldName(RNTupleModel& model, std::string& 
   name += std::string("_p") + m_processName;
 }
 
-void TriggerOutputFields::fill(const edm::EventForOutput& event) {
+void TriggerOutputFields::fill(const edm::EventForOutput& event, RNTupleWriter& writer) {
   edm::Handle<edm::TriggerResults> handle;
   event.getByToken(m_token, handle);
   const edm::TriggerResults& triggers = *handle;
   if (m_lastRun != event.id().run()) {
     m_lastRun = event.id().run();
-    updateTriggerFields(triggers);
+    updateTriggerFields(triggers, writer);
   }
   for (auto& t : m_triggerFields) {
     t.fill(triggers);
