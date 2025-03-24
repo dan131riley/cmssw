@@ -34,14 +34,23 @@ Muon system:
 * M1: 2021 baseline with additional chambers in GE21 and iRPC31/41
 * M2: 2023 GE21 shifted in position
 * M3: 2024 with additional chambers in GE21 and iRPC31
-* M4: 2025 with additional chambers in GE21 and iRPC
+* M4: 2025 with additional chambers in GE21 and iRPC and modified DTShield
 * M5: Same as M1 with modified RPC
 * M6: Same as M2 with modified RPC
 * M7: Same as M3 with modified RPC
 * M8: Same as M4 with modified RPC
+* M9: Same as M1 with modified RPC, corrected for phi staggering and z-position
+* M10: Same as M2 with modified RPC, corrected for phi staggering and z-position
+* M11: Same as M3 with modified RPC, corrected for phi staggering and z-position
+* M12: Same as M4 with modified RPC, corrected for phi staggering and z-position
+* M13: Same as M9 with modified DTShield
+* M14: Same as M10 with modified DTShield
+* M15: Same as M11 with modified DTShield
+* M16: Same as M12 with unmounted GE11 for 2025
 
 PPS:
 * P7: 2021 baseline (after removing overlaps and using common materials whenever possible)
+* P8: First 2025 version with the rotated PPS detectors
 
 The script also handles the common and forward elements of the geometry:
 * O4: as O6, but with zero material
@@ -55,30 +64,30 @@ The script also handles the common and forward elements of the geometry:
 * F3: same as F2 with added simulti geometry for RPD
 
 Several detector combinations have been generated:
-* 2021 = T3+C3+M1+P7+O6+F1
-* 2021ZeroMaterial = T4+C1+M1+P7+O4+F1
-* 2021FlatMinus05Percent = T5+C1+M1+P7+O5+F1
-* 2021FlatMinus10Percent = T6+C1+M1+P7+O5+F1
-* 2021FlatPlus05Percent = T7+C1+M1+P7+O5+F1
-* 2021FlatPlus10Percent = T8+C1+M1+P7+O5+F1
-* 2023 = T3+C2+M2+P7+O6+F3
-* 2023ZeroMaterial = T4+C1+M2+P7+O4+F2
-* 2023FlatMinus05Percent = T5+C1+M2+P7+O5+F2
-* 2023FlatMinus10Percent = T6+C1+M2+P7+O5+F2
-* 2023FlatPlus05Percent = T7+C1+M2+P7+O5+F2
-* 2023FlatPlus10Percent = T8+C1+M2+P7+O5+F2
-* 2024 = T3+C2+M3+P7+O6+F3
-* 2024ZeroMaterial = T4+C2+M3+P7+O4+F2
-* 2024FlatMinus05Percent = T5+C2+M3+P7+O5+F2
-* 2024FlatMinus10Percent = T6+C2+M3+P7+O5+F2
-* 2024FlatPlus05Percent = T7+C2+M3+P7+O5+F2
-* 2024FlatPlus10Percent = T8+C2+M3+P7+O5+F2
-* 2025 = T3+C2+M4+P7+O7+F3
-* 2025ZeroMaterial = T4+C2+M4+P7+O8+F3
-* 2025FlatMinus05Percent = T5+C2+M4+P7+O9+F3
-* 2025FlatMinus10Percent = T6+C2+M4+P7+O9+F3
-* 2025FlatPlus05Percent = T7+C2+M4+P7+O9+F3
-* 2025FlatPlus10Percent = T8+C2+M4+P7+O9+F3
+* 2021 = T3+C3+M9+P7+O6+F1
+* 2021ZeroMaterial = T4+C1+M9+P7+O4+F1
+* 2021FlatMinus05Percent = T5+C1+M9+P7+O5+F1
+* 2021FlatMinus10Percent = T6+C1+M9+P7+O5+F1
+* 2021FlatPlus05Percent = T7+C1+M9+P7+O5+F1
+* 2021FlatPlus10Percent = T8+C1+M9+P7+O5+F1
+* 2023 = T3+C2+M10+P7+O6+F3
+* 2023ZeroMaterial = T4+C1+M10+P7+O4+F2
+* 2023FlatMinus05Percent = T5+C1+M10+P7+O5+F2
+* 2023FlatMinus10Percent = T6+C1+M10+P7+O5+F2
+* 2023FlatPlus05Percent = T7+C1+M10+P7+O5+F2
+* 2023FlatPlus10Percent = T8+C1+M10+P7+O5+F2
+* 2024 = T3+C2+M11+P7+O6+F3
+* 2024ZeroMaterial = T4+C2+M11+P7+O4+F2
+* 2024FlatMinus05Percent = T5+C2+M11+P7+O5+F2
+* 2024FlatMinus10Percent = T6+C2+M11+P7+O5+F2
+* 2024FlatPlus05Percent = T7+C2+M11+P7+O5+F2
+* 2024FlatPlus10Percent = T8+C2+M11+P7+O5+F2
+* 2025 = T3+C2+M12+P7+O7+F3
+* 2025ZeroMaterial = T4+C2+M12+P7+O8+F3
+* 2025FlatMinus05Percent = T5+C2+M12+P7+O9+F3
+* 2025FlatMinus10Percent = T6+C2+M12+P7+O9+F3
+* 2025FlatPlus05Percent = T7+C2+M12+P7+O9+F3
+* 2025FlatPlus10Percent = T8+C2+M12+P7+O9+F3
 
 # Phase 2 Geometries
 
