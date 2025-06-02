@@ -39,7 +39,7 @@ namespace edm {
         entryNumberForIndex_(std::make_unique<std::vector<EntryNumber>>(nIndexes, IndexIntoFile::invalidEntry)),
         rootDelayedReader_(std::make_unique<RootDelayedReader>(*this, filePtr, inputType)),
         treeCacheManager_(
-            roottree::CacheManagerBase::create("Simple", filePtr_, learningEntries, enablePrefetching, branchType_)) {}
+            roottree::CacheManagerBase::create("Sparse", filePtr_, learningEntries, enablePrefetching, branchType_)) {}
 
   // Used for Event/Lumi/Run RootTrees
   RootTree::RootTree(std::shared_ptr<InputFile> filePtr,
@@ -230,14 +230,14 @@ namespace edm {
   void RootTree::resetTraining() { treeCacheManager_->resetTraining(); }
 
   void RootTree::close() {
-    // We own the treeCache_.
-    // We make sure the treeCache_ is detached from the file,
-    // so that ROOT does not also delete it.
-    treeCacheManager_->SetCacheRead(nullptr);
     // The TFile is about to be closed, and destructed.
     // Just to play it safe, zero all pointers to quantities that are owned by the TFile.
     auxBranch_ = branchEntryInfoBranch_ = nullptr;
     tree_ = metaTree_ = infoTree_ = nullptr;
+    // We own the treeCache_.
+    // We make sure the treeCache_ is detached from the file,
+    // so that ROOT does not also delete it.
+    treeCacheManager_->setCacheRead(nullptr);
     // We *must* delete the TTreeCache here because the TFilePrefetch object
     // references the TFile.  If TFile is closed, before the TTreeCache is
     // deleted, the TFilePrefetch may continue to do TFile operations, causing
@@ -281,7 +281,7 @@ namespace edm {
                                            unsigned int cacheSize,
                                            char const* branchNames) {
       tree->LoadTree(0);
-      tree->SetCacheSize(cacheSize);
+      tree->SetCacheSize(static_cast<Long64_t>(cacheSize));
       std::unique_ptr<TTreeCache> treeCache(dynamic_cast<TTreeCache*>(file.GetCacheRead(tree)));
       if (treeCache) {
         treeCache->StartLearningPhase();

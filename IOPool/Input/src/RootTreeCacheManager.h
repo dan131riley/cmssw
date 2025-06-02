@@ -8,7 +8,7 @@
 
 #include "Rtypes.h"
 
-class TTreeCache;
+class TFileCacheRead;
 class TBranch;
 class TTree;
 
@@ -28,7 +28,7 @@ namespace edm {
 
       virtual void resetTraining() {}
       virtual void reset() {}
-      virtual void SetCacheRead(TTreeCache* cache = nullptr);
+      virtual void setCacheRead(TFileCacheRead* tfcr = nullptr);
       virtual void trainCache(char const* branchNames) {}
       virtual void init(TTree* tree, unsigned int treeAutoFlush) { tree_ = tree; }
       virtual void reserve(Int_t branchCount) {}
