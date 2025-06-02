@@ -294,10 +294,6 @@ namespace edm {
   void RootTree::resetTraining() { treeCacheManager_->resetTraining(); }
 
   void RootTree::close() {
-    // We own the treeCache_.
-    // We make sure the treeCache_ is detached from the file,
-    // so that ROOT does not also delete it.
-    treeCacheManager_->SetCacheRead(nullptr);
     // The TFile is about to be closed, and destructed.
     // Just to play it safe, zero all pointers to quantities that are owned by the TFile.
     auxBranch_ = branchEntryInfoBranch_ = nullptr;
@@ -306,6 +302,7 @@ namespace edm {
     // We make sure the treeCache_ is detached from the file,
     // so that ROOT does not also delete it.
     filePtr_->clearCacheRead(tree_);
+    //treeCacheManager_->setCacheRead(nullptr);
     // We *must* delete the TTreeCache here because the TFilePrefetch object
     // references the TFile.  If TFile is closed, before the TTreeCache is
     // deleted, the TFilePrefetch may continue to do TFile operations, causing

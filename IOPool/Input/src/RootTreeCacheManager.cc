@@ -2,6 +2,7 @@
 #include "RootTreeCacheManager.h"
 
 #include "DataFormats/Provenance/interface/BranchType.h"
+#include "FWCore/Utilities/interface/EDMException.h"
 #include "FWCore/Utilities/interface/Exception.h"
 #include "FWCore/Utilities/interface/scope.h"
 
@@ -12,17 +13,16 @@
 
 #include <unordered_set>
 #include <cassert>
-#include <iostream>
 
 #include "oneapi/tbb/task_arena.h"
 
-#define ROOTDBG
-#define PARALLELUNZIP
+//#define ROOTDBG
+//#define PARALLELUNZIP
 
 namespace edm {
   namespace roottree {
     void CacheManagerBase::getEntry(TBranch* branch, EntryNumber entryNumber) { branch->GetEntry(entryNumber); }
-    void CacheManagerBase::SetCacheRead(TTreeCache* cache) { filePtr_->SetCacheRead(cache, tree_); }
+    void CacheManagerBase::setCacheRead(TFileCacheRead* tfcr) { filePtr_->SetCacheRead(tfcr, tree_); }
 
     class SimpleCache : public CacheManagerBase {
     public:
@@ -54,31 +54,34 @@ namespace edm {
           branchType_(branchType),
           learningEntries_(learningEntries),
           enablePrefetching_(enablePrefetching) {
-      if (branchType_ == InEvent) {
 #ifdef PARALLELUNZIP
+      if (branchType_ == InEvent) {
         TTreeCacheUnzip::SetParallelUnzip();
         //enablePrefetching_ = true;
-#endif
       }
+#endif
     }
 
     void SimpleCache::reset() {
       if (treeCache_) {
-        treeCache_->Print();
+        treeCache_->Print("a cachedbranches");
       }
     }
 
     void SimpleCache::setEntryNumber(EntryNumber theEntryNumber, EntryNumber entryNumber, EntryNumber entries) {
-      tree_->LoadTree(theEntryNumber);
+#ifdef ROOTDBG
+      gDebug = 1;
+#endif
       if (theEntryNumber > learningEntries_ && treeCache_->IsLearning()) {
         treeCache_->StopLearningPhase();
-        std::cout << "TTreeCache stop learning\n";
       }
-      if (arena_ && theEntryNumber > learningEntries_ && !treeCache_->IsLearning()) {
-#ifdef ROOTDBG
-        gDebug = 1;
-#endif
+      if (arena_) {
         arena_->execute([&]() { treeCache_->FillBuffer(); });
+      } else {
+        treeCache_->FillBuffer();
+      }
+      if (theEntryNumber != entryNumber) {
+        tree_->LoadTree(theEntryNumber);
       }
       gDebug = 0;
       assert(dynamic_cast<TTreeCache*>(filePtr_->GetCacheRead(tree_)) == treeCache_);
@@ -99,6 +102,7 @@ namespace edm {
         });
       } else {
         branch->GetEntry(entryNumber);
+        treeCache_->FillBuffer();
       }
       gDebug = 0;
       assert(dynamic_cast<TTreeCache*>(filePtr_->GetCacheRead(tree_)) == treeCache_);
@@ -144,7 +148,6 @@ namespace edm {
     }
 
     void SimpleCache::trainCache(char const* branchNames) {
-      std::cout << "TTreeCache starting training\n";
       if (branchType_ != InEvent) {
         tree_->SetParallelUnzip(false);
       }
@@ -212,10 +215,10 @@ namespace edm {
     };
 
     void SparseReadCache::setCacheSize(unsigned int cacheSize) {
-      auto const guard = edm::scope_exit{[&] { SetCacheRead(nullptr); }};
+      auto const guard = edm::scope_exit{[&] { setCacheRead(nullptr); }};
 
-      cacheSize_ = cacheSize;
       tree_->SetCacheSize(static_cast<Long64_t>(cacheSize));
+      cacheSize_ = cacheSize;
       treeCache_.reset(dynamic_cast<TTreeCache*>(filePtr_->GetCacheRead(tree_)));
       if (treeCache_)
         treeCache_->SetEnablePrefetching(enablePrefetching_);
@@ -243,6 +246,7 @@ namespace edm {
         }
       }
 
+      auto const guard = edm::scope_exit{[&] { setCacheRead(nullptr); }};
       if (rawTriggerSwitchOverEntry_ < 0) {
         // The trigger has never fired before.  Take everything not in the
         // trainedSet and load it from disk
@@ -261,23 +265,27 @@ namespace edm {
         // 5 MB as the cache size below
         tree_->SetCacheSize(static_cast<Long64_t>(5 * 1024 * 1024));
         rawTriggerTreeCache_.reset(dynamic_cast<TTreeCache*>(filePtr_->GetCacheRead(tree_)));
-        if (rawTriggerTreeCache_)
+        assert(rawTriggerTreeCache_);
+        if (rawTriggerTreeCache_) {
           rawTriggerTreeCache_->SetEnablePrefetching(false);
-        TObjArray* branches = tree_->GetListOfBranches();
-        int branchCount = branches->GetEntriesFast();
+          TObjArray* branches = tree_->GetListOfBranches();
+          int branchCount = branches->GetEntriesFast();
 
-        // Train the rawTriggerCache to have everything not in the regular cache.
-        rawTriggerTreeCache_->SetLearnEntries(0);
-        rawTriggerTreeCache_->SetEntryRange(entryNumber, rawTriggerSwitchOverEntry_);
-        for (int i = 0; i < branchCount; i++) {
-          auto tmp_branch = dynamic_cast<TBranch*>(branches->UncheckedAt(i));
-          if (trainedSet_.find(tmp_branch) != trainedSet_.end()) {
-            continue;
+          // Train the rawTriggerCache to have everything not in the regular cache.
+          rawTriggerTreeCache_->SetLearnEntries(0);
+          rawTriggerTreeCache_->SetEntryRange(entryNumber, rawTriggerSwitchOverEntry_);
+          for (int i = 0; i < branchCount; i++) {
+            auto tmp_branch = dynamic_cast<TBranch*>(branches->UncheckedAt(i));
+            if (trainedSet_.find(tmp_branch) != trainedSet_.end()) {
+              continue;
+            }
+            rawTriggerTreeCache_->AddBranch(tmp_branch, kTRUE);
           }
-          rawTriggerTreeCache_->AddBranch(tmp_branch, kTRUE);
+          rawTriggerTreeCache_->StopLearningPhase();
         }
         performedSwitchOver_ = false;
-        rawTriggerTreeCache_->StopLearningPhase();
+        // setCacheRead(nullptr);
+
         return rawTriggerTreeCache_.get();
       } else if (!performedSwitchOver_ and entryNumber < rawTriggerSwitchOverEntry_) {
         // The raw trigger has fired and it contents are valid.
@@ -300,6 +308,7 @@ namespace edm {
             triggerTreeCache_->AddBranch(*it, kTRUE);
           }
           triggerTreeCache_->StopLearningPhase();
+          // setCacheRead(nullptr);
         }
         return triggerTreeCache_.get();
       }
@@ -310,7 +319,6 @@ namespace edm {
     }
 
     TTreeCache* SparseReadCache::selectCache(TBranch* branch, EntryNumber entryNumber) {
-      auto const guard = edm::scope_exit{[&] { SetCacheRead(nullptr); }};
       TTreeCache* triggerCache = nullptr;
       if (promptRead_) { // should move to simple dsr
         return rawTreeCache_.get();
@@ -332,9 +340,28 @@ namespace edm {
     }
 
     void SparseReadCache::getEntry(TBranch* branch, EntryNumber entryNumber) {
-      auto const guard = edm::scope_exit{[&] { SetCacheRead(nullptr); }};
-      SetCacheRead(selectCache(branch, entryNumber));
-      branch->GetEntry(entryNumber);
+      // We make sure the treeCache_ is detached from the file,
+      // so that ROOT does not also delete it.
+      auto const guard = edm::scope_exit{[&] { setCacheRead(nullptr); }};
+
+      try {
+        setCacheRead(selectCache(branch, entryNumber));
+        branch->GetEntry(entryNumber);
+      } catch (cms::Exception const& e) {
+        Exception t(errors::FileReadError, "", e);
+        t.addContext(std::string("Reading branch ") + branch->GetName());
+        throw t;
+      } catch (std::exception const& e) {
+        Exception t(errors::FileReadError);
+        t << e.what();
+        t.addContext(std::string("Reading branch ") + branch->GetName());
+        throw t;
+      } catch (...) {
+        Exception t(errors::FileReadError);
+        t << "An exception of unknown type was thrown.";
+        t.addContext(std::string("Reading branch ") + branch->GetName());
+        throw t;
+      }
     }
 
     inline void RootTree::getEntryUsingCache(TBranch* branch, EntryNumber entryNumber, TTreeCache* cache) const {
@@ -361,22 +388,23 @@ namespace edm {
     }
 
     void SparseReadCache::startTraining(EntryNumber entryNumber) {
-      auto const guard = edm::scope_exit{[&] { SetCacheRead(nullptr); }};
+      auto const guard = edm::scope_exit{[&] { setCacheRead(nullptr); }};
+
       if (cacheSize_ == 0) {
         return;
       }
       assert(treeCache_);
       assert(branchType_ == InEvent);
       assert(!rawTreeCache_);
-      treeCache_->StartLearningPhase();
+      /* treeCache_->StartLearningPhase(); */
       treeCache_->SetLearnEntries(learningEntries_);
       tree_->SetCacheSize(static_cast<Long64_t>(cacheSize_));
+      switchOverEntry_ = entryNumber + learningEntries_;
       auto treeStart = switchOverEntry_;
       rawTreeCache_.reset(dynamic_cast<TTreeCache*>(filePtr_->GetCacheRead(tree_)));
       if (rawTreeCache_) {
         rawTreeCache_->SetEnablePrefetching(false);
         rawTreeCache_->SetLearnEntries(0);
-        switchOverEntry_ = entryNumber + learningEntries_;
         auto rawStart = entryNumber;
         auto rawEnd = switchOverEntry_;
         if (switchOverEntry_ >= tree_->GetEntries()) {
@@ -401,26 +429,28 @@ namespace edm {
     }
 
     void SparseReadCache::stopTraining() {
-      auto const guard = edm::scope_exit{[&] { SetCacheRead(nullptr); }};
+      auto const guard = edm::scope_exit{[&] { setCacheRead(nullptr); }};
+
+      setCacheRead(treeCache_.get());
       treeCache_->StopLearningPhase();
       rawTreeCache_.reset();
     }
 
     void SparseReadCache::resetTraining() {
-      treeCache_->StartLearningPhase();
+      /* treeCache_->StartLearningPhase(); */
       trainNow_ = true;
     }
 
     void SparseReadCache::reset() {
       if (treeCache_)
-        treeCache_->Print();
+        treeCache_->Print("a cachedbranches");
       if (rawTreeCache_)
-        rawTreeCache_->Print();
+        rawTreeCache_->Print("a cachedbranches");
       if (triggerTreeCache_)
-        triggerTreeCache_->Print();
+        triggerTreeCache_->Print("a cachedbranches");
       if (rawTriggerTreeCache_)
-        rawTriggerTreeCache_->Print();
-      SetCacheRead(nullptr);
+        rawTriggerTreeCache_->Print("a cachedbranches");
+      //SetCacheRead(nullptr);
       treeCache_.reset();
       rawTreeCache_.reset();
       triggerTreeCache_.reset();
@@ -429,46 +459,48 @@ namespace edm {
    }
 
     void SparseReadCache::setEntryNumber(EntryNumber theEntryNumber, EntryNumber entryNumber, EntryNumber entries) {
-      auto guard = filePtr_->setCacheReadTemporarily(treeCache_.get(), tree_);
+      {
+        auto guard = filePtr_->setCacheReadTemporarily(treeCache_.get(), tree_);
 
-      // Detect a backward skip.  If the skip is sufficiently large, we roll the dice and reset the treeCache.
-      // This will cause some amount of over-reading: we pre-fetch all the events in some prior cluster.
-      // However, because reading one event in the cluster is supposed to be equivalent to reading all events in the cluster,
-      // we're not incurring additional over-reading - we're just doing it more efficiently.
-      // NOTE: Constructor guarantees treeAutoFlush_ is positive, even if TTree->GetAutoFlush() is negative.
-      if (theEntryNumber < entryNumber and theEntryNumber >= 0) {
-        //We started reading the file near the end, now we need to correct for the learning length
-        if (switchOverEntry_ > tree_->GetEntries()) {
-          switchOverEntry_ = switchOverEntry_ - tree_->GetEntries();
-          if (rawTreeCache_) {
-            rawTreeCache_->SetEntryRange(theEntryNumber, switchOverEntry_);
-            rawTreeCache_->FillBuffer();
+        // Detect a backward skip.  If the skip is sufficiently large, we roll the dice and reset the treeCache.
+        // This will cause some amount of over-reading: we pre-fetch all the events in some prior cluster.
+        // However, because reading one event in the cluster is supposed to be equivalent to reading all events in the cluster,
+        // we're not incurring additional over-reading - we're just doing it more efficiently.
+        // NOTE: Constructor guarantees treeAutoFlush_ is positive, even if TTree->GetAutoFlush() is negative.
+        if (theEntryNumber < entryNumber and theEntryNumber >= 0) {
+          //We started reading the file near the end, now we need to correct for the learning length
+          if (switchOverEntry_ > tree_->GetEntries()) {
+            switchOverEntry_ = switchOverEntry_ - tree_->GetEntries();
+            if (rawTreeCache_) {
+              rawTreeCache_->SetEntryRange(theEntryNumber, switchOverEntry_);
+              rawTreeCache_->FillBuffer();
+            }
+          }
+          if (performedSwitchOver_ and triggerTreeCache_) {
+            //We are using the triggerTreeCache_ not the rawTriggerTreeCache_.
+            //The triggerTreeCache was originally told to start from an entry further in the file.
+            triggerTreeCache_->SetEntryRange(theEntryNumber, tree_->GetEntries());
+          } else if (rawTriggerTreeCache_) {
+            //move the switch point to the end of the cluster holding theEntryNumber
+            rawTriggerSwitchOverEntry_ = -1;
+            TTree::TClusterIterator clusterIter = tree_->GetClusterIterator(theEntryNumber);
+            while ((rawTriggerSwitchOverEntry_ < theEntryNumber) || (rawTriggerSwitchOverEntry_ <= 0)) {
+              rawTriggerSwitchOverEntry_ = clusterIter();
+            }
+            rawTriggerTreeCache_->SetEntryRange(theEntryNumber, rawTriggerSwitchOverEntry_);
           }
         }
-        if (performedSwitchOver_ and triggerTreeCache_) {
-          //We are using the triggerTreeCache_ not the rawTriggerTreeCache_.
-          //The triggerTreeCache was originally told to start from an entry further in the file.
-          triggerTreeCache_->SetEntryRange(theEntryNumber, tree_->GetEntries());
-        } else if (rawTriggerTreeCache_) {
-          //move the switch point to the end of the cluster holding theEntryNumber
-          rawTriggerSwitchOverEntry_ = -1;
-          TTree::TClusterIterator clusterIter = tree_->GetClusterIterator(theEntryNumber);
-          while ((rawTriggerSwitchOverEntry_ < theEntryNumber) || (rawTriggerSwitchOverEntry_ <= 0)) {
-            rawTriggerSwitchOverEntry_ = clusterIter();
-          }
-          rawTriggerTreeCache_->SetEntryRange(theEntryNumber, rawTriggerSwitchOverEntry_);
+        if ((theEntryNumber < static_cast<EntryNumber>(entryNumber - treeAutoFlush_)) && (treeCache_) &&
+            (!treeCache_->IsLearning()) && (entries > 0) && (switchOverEntry_ >= 0)) {
+          treeCache_->SetEntryRange(theEntryNumber, entries);
+          treeCache_->FillBuffer();
         }
-      }
-      if ((theEntryNumber < static_cast<EntryNumber>(entryNumber - treeAutoFlush_)) && (treeCache_) &&
-          (!treeCache_->IsLearning()) && (entries > 0) && (switchOverEntry_ >= 0)) {
-        treeCache_->SetEntryRange(theEntryNumber, entries);
-        treeCache_->FillBuffer();
-      }
 
-      tree_->LoadTree(theEntryNumber);
-      SetCacheRead(nullptr);
+        tree_->LoadTree(theEntryNumber);
+        /* setCacheRead(nullptr); */
+      }
       if (treeCache_ && trainNow_ && theEntryNumber >= 0) {
-        startTraining(entryNumber);
+        startTraining(theEntryNumber);
         trainNow_ = false;
         trainedSet_.clear();
         triggerSet_.clear();
@@ -488,6 +520,7 @@ namespace edm {
         return;
       }
 
+      tree_->LoadTree(0);
       assert(treeCache_);
       {
         auto guard = filePtr_->setCacheReadTemporarily(treeCache_.get(), tree_);
@@ -498,7 +531,6 @@ namespace edm {
         assert(treeCache_->GetTree() == tree_);
         //want guard to end here
       }
-
       if (branchType_ == InEvent) {
         // Must also manually add things to the trained set.
         TObjArray* branches = tree_->GetListOfBranches();
