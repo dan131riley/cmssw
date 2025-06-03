@@ -46,10 +46,8 @@ namespace edm {
     static void reportReadBranch(InputType inputType, std::string const& branchname);
 
     TObject* Get(char const* name) { return file_->Get(name); }
-    TFileCacheRead* GetCacheRead(const TObject* tree = nullptr) const { return file_->GetCacheRead(/* tree */); }
-    void SetCacheRead(TFileCacheRead* tfcr, TObject* tree = nullptr) {
-      file_->SetCacheRead(tfcr, nullptr /* tree */, TFile::kDoNotDisconnect);
-    }
+    TFileCacheRead* GetCacheRead(const TObject* tree) const { return file_->GetCacheRead(tree); }
+    void SetCacheRead(TFileCacheRead* tfcr, TObject* tree) { file_->SetCacheRead(tfcr, tree, TFile::kDoNotDisconnect); }
     void logFileAction(char const* msg, char const* fileName) const;
 
   private:
